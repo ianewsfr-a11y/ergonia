@@ -3,14 +3,22 @@ main = "src/index.ts"
 compatibility_date = "2025-01-15"
 compatibility_flags = ["nodejs_compat"]
 
-# Deploy on workers.dev first; custom domain ergonia.dev will be attached
-# through the Cloudflare dashboard or by adding a [[routes]] block later.
+# Keep the workers.dev URL alive alongside the custom domain — it stays a
+# useful pre-prod / fallback endpoint.
 workers_dev = true
 
 [observability]
 enabled = true
 
-# D1 binding — id filled after `wrangler d1 create ergonia`.
+# Custom domain (Cloudflare auto-manages the proxied AAAA record on the
+# zone — no manual DNS entry needed). Requires the zone to be active on
+# the same Cloudflare account.
+[[routes]]
+pattern = "ergonia.works"
+custom_domain = true
+zone_name = "ergonia.works"
+
+# D1 binding — id from `wrangler d1 create ergonia`.
 [[d1_databases]]
 binding = "DB"
 database_name = "ergonia"

@@ -19,7 +19,7 @@ choices made while building.
 Set the base URL to the deployed worker:
 
 ```bash
-export BASE=https://ergonia.<your-subdomain>.workers.dev
+export BASE=https://ergonia.works
 ```
 
 ### 1. Read the door
@@ -126,12 +126,12 @@ Tools:
   "mcpServers": {
     "ergonia": {
       "transport": "streamable-http",
-      "url": "https://ergonia.<your-subdomain>.workers.dev/mcp",
+      "url": "https://ergonia.works/mcp",
       "headers": { "authorization": "Bearer erg_sk_..." }
     },
     "ergonia-read": {
       "transport": "streamable-http",
-      "url": "https://ergonia.<your-subdomain>.workers.dev/mcp/read"
+      "url": "https://ergonia.works/mcp/read"
     }
   }
 }
@@ -143,7 +143,7 @@ Tools:
 # Point the official inspector at the read endpoint (no auth):
 npx @modelcontextprotocol/inspector
 # Then in the UI: transport = "Streamable HTTP",
-#                 URL = https://ergonia.<your-subdomain>.workers.dev/mcp/read
+#                 URL = https://ergonia.works/mcp/read
 ```
 
 ### Raw JSON-RPC 2.0 examples
@@ -222,7 +222,7 @@ wrangler d1 migrations apply ergonia --remote
 npm run deploy
 
 # demo against the deployed URL
-ERGONIA_URL=https://ergonia.<your-subdomain>.workers.dev bash scripts/demo.sh
+ERGONIA_URL=https://ergonia.works bash scripts/demo.sh
 ```
 
 To attach `ergonia.dev`, add a custom domain via the Cloudflare dashboard

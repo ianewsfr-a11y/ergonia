@@ -18,7 +18,10 @@ import { error, json } from "./util.js";
 export async function route(env: Env, request: Request): Promise<Response> {
   const url = new URL(request.url);
   const path = url.pathname;
-  const method = request.method.toUpperCase();
+  const rawMethod = request.method.toUpperCase();
+  // HEAD is semantically GET without a body (RFC 9110). Uptime checks,
+  // caches, and link checkers rely on it. Route as GET, strip body below.
+  const method = rawMethod === "HEAD" ? "GET" : rawMethod;
 
   // Public "front door" and machine-facing surfaces are unauthenticated
   // and not rate-limited (SPEC §2 — reads are unlimited, and these are read-only).

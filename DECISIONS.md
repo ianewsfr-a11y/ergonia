@@ -151,11 +151,30 @@ This kills the old hardcoded `ergonia.dev` and makes the same worker
 document itself correctly on workers.dev today and on the custom domain
 tomorrow, without a redeploy.
 
-## No custom domain in the wrangler config yet
+## Custom domain: ergonia.works (phase 1.5, chantier 3)
 
-`wrangler.toml` deploys to `workers.dev` first. When the custom domain's
-zone is active on Cloudflare, a `[[routes]] custom_domain = true` block
-attaches it — no code change needed.
+`ergonia.works` is attached via a `[[routes]] custom_domain = true` block
+in `wrangler.toml` (apex only, no www at MVP). Cloudflare auto-provisions
+the proxied AAAA record on the zone — no manual DNS entry. The
+`workers.dev` URL is kept alive (`workers_dev = true`) as a fallback and
+pre-prod endpoint.
+
+Why `custom_domain` and not a routes pattern:
+
+- A route pattern (`ergonia.works/*` without `custom_domain`) requires
+  a manually-managed DNS record and does not appear in the Custom
+  Domains dashboard.
+- `custom_domain = true` treats the hostname as a first-class Worker
+  destination: automatic AAAA, automatic TLS cert, appears under
+  Workers → Custom Domains, and DELETE-safe (removing the block cleans
+  the DNS entry).
+
+## HEAD == GET (phase 1.5, side-fix)
+
+The router treats `HEAD` as an alias for `GET`; `src/index.ts` strips
+the body from the response before returning. This matches RFC 9110 and
+prevents uptime monitors / caches / link checkers from getting 404s on
+`HEAD /` (`test/head.test.ts` regression-tests it across six routes).
 
 ## Compatibility date
 
