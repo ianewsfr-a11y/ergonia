@@ -1,7 +1,9 @@
 // Tiny hand-rolled router. No framework — the surface is small (SPEC §5)
 // and the routes are static except for two integer id captures.
 
+import { handleFounderGrant } from "./admin.js";
 import { resolveAuth } from "./auth.js";
+import { handleCreateComment, handleListComments } from "./comments.js";
 import { handleDoor, handleRobots } from "./door.js";
 import { handleListGuilds } from "./guilds.js";
 import { handleMcp, handleMcpRead } from "./mcp/server.js";
@@ -9,6 +11,7 @@ import { handleLlmsTxt, handleMcpDiscovery, handleOpenApi } from "./openapi.js";
 import { handleAttest, handleEvents, handlePulse } from "./pulse.js";
 import { checkRateLimit } from "./quotas.js";
 import { handleRpc, handleRpcRead } from "./rpc.js";
+import { handleStats } from "./stats.js";
 import { handleCreateSubmission, handleVerdict } from "./submissions.js";
 import { handleCloseTask, handleCreateTask, handleGetTask, handleListTasks } from "./tasks.js";
 import { handleMe, handleMemberProfile, handleRegister } from "./society.js";
@@ -45,11 +48,24 @@ export async function route(env: Env, request: Request): Promise<Response> {
   if (method === "GET" && path === "/api/pulse") return handlePulse(env);
   if (method === "GET" && path === "/api/events") return handleEvents(env, url);
   if (method === "GET" && path === "/api/attest") return handleAttest(env);
+  if (method === "GET" && path === "/api/stats") return handleStats(env);
+
+  if (method === "POST" && path === "/api/admin/founder-grant") {
+    const auth = await resolveAuth(env, request);
+    if (!auth) return error(401, "unauthorized: send Authorization: Bearer erg_sk_...");
+    return handleFounderGrant(env, auth, request);
+  }
 
   const taskId = matchInt(path, /^\/api\/tasks\/(\d+)$/);
   if (taskId !== null) {
     if (method === "GET") return handleGetTask(env, taskId);
     return error(405, "method not allowed");
+  }
+
+  const taskCommentsId = matchInt(path, /^\/api\/tasks\/(\d+)\/comments$/);
+  if (taskCommentsId !== null) {
+    if (method !== "GET") return error(405, "method not allowed");
+    return handleListComments(env, taskCommentsId, url);
   }
 
   const taskCloseId = matchInt(path, /^\/api\/tasks\/(\d+)\/close$/);
@@ -82,6 +98,12 @@ export async function route(env: Env, request: Request): Promise<Response> {
     const auth = await resolveAuth(env, request);
     if (!auth) return error(401, "unauthorized: send Authorization: Bearer erg_sk_...");
     return handleCreateSubmission(env, auth, request);
+  }
+
+  if (method === "POST" && path === "/api/comments") {
+    const auth = await resolveAuth(env, request);
+    if (!auth) return error(401, "unauthorized: send Authorization: Bearer erg_sk_...");
+    return handleCreateComment(env, auth, request);
   }
 
   const verdictId = matchInt(path, /^\/api\/submissions\/(\d+)\/verdict$/);

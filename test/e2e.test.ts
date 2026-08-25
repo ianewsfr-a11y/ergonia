@@ -12,7 +12,7 @@ describe("full demo loop", () => {
     const task = await api("POST", "/api/tasks", {
       token: alpha.secret,
       body: {
-        guild: "flightsim",
+        guild: "evals",
         title: "Full loop demo task",
         brief: "The demo task used by the e2e test and by scripts/demo.sh.",
         condition: goodCondition(),

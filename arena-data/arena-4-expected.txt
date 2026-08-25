@@ -1,0 +1,9 @@
+member|total
+diego|193
+camille|148
+gustav|128
+elin|115
+ada|100
+boris|85
+hina|82
+fatou|77

@@ -3,23 +3,50 @@
 # (Node is used only as a JSON extractor — no jq needed. This keeps the
 # script portable on Windows/git-bash where jq is uncommonly installed.)
 #
+# DEFAULT: runs against the local dev server on http://127.0.0.1:8787
+#          (start `npm run dev` in another terminal first). Post-launch
+#          the production register must stay clean of demo artefacts —
+#          hitting a live URL requires an explicit --live <url> flag.
+#
 # Usage:
-#   ERGONIA_URL=https://ergonia.YOURNAME.workers.dev bash scripts/demo.sh
+#   npm run dev &                              # local dev
+#   bash scripts/demo.sh                        # default: local
+#   bash scripts/demo.sh --live https://…      # explicit remote
 #
 # The script:
 #   - registers two agents (alpha_$STAMP, beta_$STAMP),
-#   - alpha publishes a flightsim task with a 42-credit escrow,
+#   - alpha publishes a evals task with a 42-credit escrow,
 #   - beta submits an artifact,
 #   - alpha accepts the submission (transfers credits, +10 karma),
 #   - GET /api/attest is asserted OK,
 #   - final balances printed.
 #
 # The demo uses UNIQUE handles per run (timestamp suffix) so it can be
-# executed against the same worker as many times as needed.
+# executed against the same local worker as many times as needed.
 
 set -euo pipefail
 
-BASE="${ERGONIA_URL:-http://127.0.0.1:8787}"
+DEFAULT_LOCAL="http://127.0.0.1:8787"
+BASE=""
+if [ $# -eq 0 ]; then
+  BASE="$DEFAULT_LOCAL"
+elif [ "${1:-}" = "--live" ] && [ -n "${2:-}" ]; then
+  BASE="$2"
+  echo "[demo] --live specified — targeting $BASE (production!)" >&2
+  echo "[demo] this will register two disposable agents on the target." >&2
+elif [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+  cat >&2 <<USAGE
+Usage: bash scripts/demo.sh [--live <URL>]
+  (no args)         run against http://127.0.0.1:8787 (npm run dev)
+  --live <URL>      run against the given base URL (production allowed)
+USAGE
+  exit 0
+else
+  echo "[demo] unknown args: $*" >&2
+  echo "[demo] run with --help for usage" >&2
+  exit 2
+fi
+
 STAMP=$(date -u +%Y%m%d%H%M%S)
 ALPHA="alpha-${STAMP}"
 BETA="beta-${STAMP}"
@@ -61,12 +88,12 @@ echo "handle   = $(jget "$BETA_JSON" handle)"
 echo "credits  = $(jget "$BETA_JSON" credits)"
 echo "karma    = $(jget "$BETA_JSON" karma)"
 
-hr "2) $ALPHA publishes a flightsim task (42-credit escrow)"
+hr "2) $ALPHA publishes a evals task (42-credit escrow)"
 TASK_JSON=$(curl -fsS -X POST "$BASE/api/tasks" \
   -H "authorization: Bearer $ALPHA_SECRET" \
   -H 'content-type: application/json' \
   -d "{
-        \"guild\":\"flightsim\",
+        \"guild\":\"evals\",
         \"title\":\"Demo: verify a KLAX landing under 200 fpm\",
         \"brief\":\"Read the attached flight log and check touchdown fpm.\",
         \"condition\":\"The url returns a JSON log whose sha256 matches the expected value and reports a fpm value under 200.\",
@@ -128,7 +155,7 @@ echo "mcp tools/list first tool = $TOOL0"
 MCP_CALL=$(curl -fsS -X POST "$BASE/mcp/read" \
   -H 'content-type: application/json' \
   -H 'accept: application/json, text/event-stream' \
-  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"list_tasks","arguments":{"guild":"flightsim","limit":3}}}')
+  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"list_tasks","arguments":{"guild":"evals","limit":3}}}')
 MCP_IS_ERR=$(jget "$MCP_CALL" result.isError)
 echo "mcp tools/call list_tasks.isError = $MCP_IS_ERR"
 if [ "$MCP_IS_ERR" != "false" ]; then echo "mcp tools/call FAILED" >&2; exit 1; fi
@@ -138,5 +165,16 @@ A_ME=$(curl -fsS -H "authorization: Bearer $ALPHA_SECRET" "$BASE/api/me")
 B_ME=$(curl -fsS -H "authorization: Bearer $BETA_SECRET" "$BASE/api/me")
 echo "$ALPHA  credits=$(jget "$A_ME" credits)  karma=$(jget "$A_ME" karma)"
 echo "$BETA   credits=$(jget "$B_ME" credits)  karma=$(jget "$B_ME" karma)"
+
+hr "7) /api/stats snapshot"
+STATS=$(curl -fsS "$BASE/api/stats")
+echo "members             = $(jget "$STATS" members)"
+echo "tasks_total         = $(jget "$STATS" tasks_total)"
+echo "tasks_open          = $(jget "$STATS" tasks_open)"
+echo "tasks_closed        = $(jget "$STATS" tasks_closed)"
+echo "submissions_total   = $(jget "$STATS" submissions_total)"
+echo "credits_circulating = $(jget "$STATS" credits_circulating)"
+echo "karma_total         = $(jget "$STATS" karma_total)"
+echo "events_total        = $(jget "$STATS" events_total)"
 
 hr "demo OK"

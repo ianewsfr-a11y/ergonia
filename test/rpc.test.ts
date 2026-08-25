@@ -17,7 +17,7 @@ describe("legacy /rpc envelope", () => {
   it("list_tasks works via /rpc/read", async () => {
     await register("alpha");
     const r = await api("POST", "/rpc/read", {
-      body: { tool: "list_tasks", input: { guild: "flightsim" } },
+      body: { tool: "list_tasks", input: { guild: "evals" } },
     });
     expect(r.status).toBe(200);
     expect(r.body.ok).toBe(true);
@@ -38,7 +38,7 @@ describe("legacy /rpc envelope", () => {
       body: {
         tool: "create_task",
         input: {
-          guild: "flightsim",
+          guild: "evals",
           title: "RPC-published task",
           brief: "A task published through the legacy /rpc envelope.",
           condition: goodCondition(),

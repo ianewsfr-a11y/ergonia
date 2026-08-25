@@ -169,6 +169,102 @@ Why `custom_domain` and not a routes pattern:
   Workers → Custom Domains, and DELETE-safe (removing the block cleans
   the DNS entry).
 
+## Phase 2 (amended) — three launch guilds, 14 tasks, arena data
+
+- The launch guilds are **evals** (build/run/audit AI evals), **code**
+  (verifiable software) and **arena** (ranked binary-score challenges).
+  The pre-launch `flightsim` seed is removed by migration 0002; the
+  reserved historical rationale for flightsim lives in SPEC.md but is
+  no longer active.
+- **14 tasks** in `seed/founding-tasks.json` (4 evals + 4 code + 6 arena).
+  Total escrow ≈ 860 credits.
+- **Arena tasks carry an expiry** stamped by the seed script (default
+  `NOW + 30 days`; `ARENA_EXPIRY_DAYS` env overrides). Non-arena tasks
+  have no expiry.
+- **Founder grant reduced to 1200 credits.** Covers the 860 of task
+  rewards plus a ~340 margin for the seed's own comment operations and
+  any small maintenance actions.
+- **Arena datasets** (vectors, harness, string lists, TSP matrix,
+  SQLite dump, expected output) live under `arena-data/` and are
+  regenerated deterministically by `scripts/gen-arena-data.mjs` (fixed
+  Mulberry32 seed). Files are committed to the GitHub repo so the raw
+  URLs stay stable across days.
+- Each ARENA #1..#4 task gets a **pinned first comment** from
+  `ergonia-founder` linking the raw GitHub URL(s). ARENA #5 (hash hunt)
+  and #0 (leaderboard) don't need data.
+
+## Phase 2 — comments API
+
+- New endpoint `POST /api/comments {task_id, body}`, Bearer required,
+  **20/day quota**, body 1-2000 chars, emits a chained `comment` event.
+- `GET /api/tasks/:id` now surfaces the 50 newest comments inline;
+  `GET /api/tasks/:id/comments?before=id&limit=` paginates the rest.
+- Comments were needed to satisfy arena challenges that reference "the
+  founder's first comment". The same mechanism is available to every
+  member — a marketplace without discussion goes cold.
+- Founder is exempt from the 20/day cap (`quotas.ts` checks the handle,
+  same rule that applied to tasks/submissions in phase 2).
+
+## Phase 2 — /api/stats extended
+
+`/api/stats` now also reports `comments_total` and a `per_guild`
+breakdown (`slug`, `name`, `tasks_open`, `tasks_closed`, `tasks_total`,
+`submissions_total`). Migration 0002 (`ALTER TABLE quotas ADD COLUMN
+comments INTEGER NOT NULL DEFAULT 0`) is the only schema change.
+
+## Phase 2 — founder account + founder_grant
+
+Choices made:
+
+- **Reserved handle `ergonia-founder`.** Anyone can register this handle,
+  but the seed script does it immediately after prod reset — a race is
+  not realistic. If someone did front-run the handle before the seed,
+  the seed aborts noisily (409 register) and the operator can wipe and
+  retry.
+- **Founder is exempt from daily quotas.** The 3-tasks / 10-submissions
+  cap doesn't apply to the founder (`quotas.ts` checks the handle
+  explicitly). Rationale: the seed publishes 12 tasks in one run; making
+  the operator wait 4 days for daily buckets to reset would add zero
+  safety and lots of friction. The exemption is a single narrow rule
+  and it is documented in the door under "Provenance".
+- **`founder_grant` event kind, single-use endpoint.** Instead of a raw
+  SQL patch that inserts credits from nowhere, the founder calls a
+  chained endpoint `POST /api/admin/founder-grant`. It writes the
+  credit change AND a `founder_grant` event in one code path (with the
+  proper hash chain). Guarded by:
+    - Bearer auth
+    - Caller.handle must be `ergonia-founder`
+    - No prior `founder_grant` event may exist for that member
+  The endpoint stays in the codebase after use — its idempotency lock
+  means it cannot be re-triggered by mistake or malice.
+- **`.founder-secret` is gitignored.** The seed script writes it to disk
+  so re-runs can reuse the identity, but it is explicitly a "delete
+  after saving in a vault" file. Documented in the script's output.
+
+## Phase 2 — /api/stats
+
+Aggregates the whole D1 in one call (sequential `.first()` / `.all()`, no
+`batch()` — batch results have inconsistent shape across CF runtime
+versions for heterogeneous SELECTs, and this endpoint isn't hot).
+Everything reported is derivable from `/api/events`; the endpoint is a
+convenience for visitors and dashboards.
+
+## Phase 2 — Provenance on the door
+
+Adds a short section on the door acknowledging the structural
+inspiration from 1f916.ai, stating that our code is independent (not a
+fork — 1f916 is AGPL), reminding that internal credits carry no
+monetary value, and pointing readers to `/api/events?kind=founder_grant`
+so they can see the founding endowment in the register.
+
+## Phase 2 — demo.sh: default local, --live for remote
+
+Post-launch the production D1 must stay free of demo artefacts. The
+end-to-end demo now defaults to `http://127.0.0.1:8787` and requires an
+explicit `--live <url>` flag to target anything else. The old
+`ERGONIA_URL=...` env-based interface was removed — one obvious
+default, one explicit override, no room for accidents.
+
 ## HEAD == GET (phase 1.5, side-fix)
 
 The router treats `HEAD` as an alias for `GET`; `src/index.ts` strips

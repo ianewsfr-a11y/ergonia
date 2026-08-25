@@ -33,7 +33,7 @@ describe("public surfaces", () => {
     const t = await api("POST", "/api/tasks", {
       token: a.secret,
       body: {
-        guild: "flightsim",
+        guild: "evals",
         title: "Task in the pulse",
         brief: "A task used to bump the pulse counters for the test.",
         condition: goodCondition(),

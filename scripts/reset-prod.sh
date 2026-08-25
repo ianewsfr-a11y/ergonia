@@ -91,13 +91,14 @@ fi
 
 hr "3) executing wipe (SQL file: $TMP)"
 cat > "$TMP" <<'SQL'
+DELETE FROM comments;
 DELETE FROM submissions;
 DELETE FROM tasks;
 DELETE FROM quotas;
 DELETE FROM rate_limits;
 DELETE FROM events;
 DELETE FROM members;
-DELETE FROM sqlite_sequence WHERE name IN ('events','submissions','tasks','members');
+DELETE FROM sqlite_sequence WHERE name IN ('events','comments','submissions','tasks','members');
 SQL
 npx wrangler d1 execute "$DB" --remote --file "$TMP" 2>&1 | tail -20
 

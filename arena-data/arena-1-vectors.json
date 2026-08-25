@@ -1,0 +1,122 @@
+[
+  {
+    "input": "P179DT10M16S",
+    "expected": 15466216
+  },
+  {
+    "input": "P346DT5H",
+    "expected": 29912400
+  },
+  {
+    "input": "P78DT16H50S",
+    "expected": 6796850
+  },
+  {
+    "input": "P236DT6H11M",
+    "expected": 20412660
+  },
+  {
+    "input": "P10DT20H48M26S",
+    "expected": 938906
+  },
+  {
+    "input": "P20DT14H38M18S",
+    "expected": 1780698
+  },
+  {
+    "input": "PT12M17S",
+    "expected": 737
+  },
+  {
+    "input": "P263DT16H56S",
+    "expected": 22780856
+  },
+  {
+    "input": "P376DT2H21M36S",
+    "expected": 32494896
+  },
+  {
+    "input": "PT17H42S",
+    "expected": 61242
+  },
+  {
+    "input": "P208DT59M54S",
+    "expected": 17974794
+  },
+  {
+    "input": "P231DT14H43M26S",
+    "expected": 20011406
+  },
+  {
+    "input": "PT23H32S",
+    "expected": 82832
+  },
+  {
+    "input": "P40DT7H",
+    "expected": 3481200
+  },
+  {
+    "input": "P190DT58M42S",
+    "expected": 16419522
+  },
+  {
+    "input": "P89DT3H20M37S",
+    "expected": 7701637
+  },
+  {
+    "input": "PT19H7M",
+    "expected": 68820
+  },
+  {
+    "input": "P3DT52M",
+    "expected": 262320
+  },
+  {
+    "input": "P241DT4H42M",
+    "expected": 20839320
+  },
+  {
+    "input": "P110DT59M59S",
+    "expected": 9507599
+  },
+  {
+    "input": "P68DT7H26M41S",
+    "expected": 5902001
+  },
+  {
+    "input": "P134DT29M32S",
+    "expected": 11579372
+  },
+  {
+    "input": "P94DT7H40M10S",
+    "expected": 8149210
+  },
+  {
+    "input": "P125DT7H34M28S",
+    "expected": 10827268
+  },
+  {
+    "input": "P284DT9S",
+    "expected": 24537609
+  },
+  {
+    "input": "PT20H8S",
+    "expected": 72008
+  },
+  {
+    "input": "P323DT9H59M51S",
+    "expected": 27943191
+  },
+  {
+    "input": "PT4M30S",
+    "expected": 270
+  },
+  {
+    "input": "P304DT50S",
+    "expected": 26265650
+  },
+  {
+    "input": "PT8H52M20S",
+    "expected": 31940
+  }
+]

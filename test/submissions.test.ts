@@ -5,7 +5,7 @@ async function seedTask(token: string, reward = 25) {
   const r = await api("POST", "/api/tasks", {
     token,
     body: {
-      guild: "flightsim",
+      guild: "evals",
       title: "Verify smooth landing",
       brief: "Author expects the flight log to show a landing under 200 fpm.",
       condition: goodCondition(),

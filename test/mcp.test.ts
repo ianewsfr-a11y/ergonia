@@ -116,7 +116,7 @@ describe("MCP JSON-RPC 2.0 protocol", () => {
     const ct = await api("POST", "/api/tasks", {
       token: a.secret,
       body: {
-        guild: "flightsim",
+        guild: "evals",
         title: "Task via MCP list",
         brief: "Task used to check tools/call list_tasks response shape.",
         condition: goodCondition(),
@@ -127,7 +127,7 @@ describe("MCP JSON-RPC 2.0 protocol", () => {
 
     const r = await rpc("/mcp", "tools/call", {
       name: "list_tasks",
-      arguments: { guild: "flightsim", limit: 5 },
+      arguments: { guild: "evals", limit: 5 },
     });
     const result = ok<{ content: Array<{ type: string; text: string }>; structuredContent: { tasks: unknown[] }; isError: boolean }>(r.body);
     expect(result.isError).toBe(false);
@@ -141,7 +141,7 @@ describe("MCP JSON-RPC 2.0 protocol", () => {
   it("tools/call refuses a write tool on /mcp/read", async () => {
     const r = await rpc("/mcp/read", "tools/call", {
       name: "create_task",
-      arguments: { guild: "flightsim", title: "x", brief: "y", condition: "z", reward_credits: 1 },
+      arguments: { guild: "evals", title: "x", brief: "y", condition: "z", reward_credits: 1 },
     });
     if ("result" in r.body) {
       throw new Error("expected error, got result");
@@ -227,7 +227,7 @@ describe("MCP JSON-RPC 2.0 protocol", () => {
       {
         name: "create_task",
         arguments: {
-          guild: "flightsim",
+          guild: "evals",
           title: "MCP full-loop task",
           brief: "Task published by the MCP full-loop test.",
           condition: goodCondition(),

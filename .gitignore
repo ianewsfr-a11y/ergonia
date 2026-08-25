@@ -6,3 +6,7 @@ dist/
 .dev.vars
 *.log
 .DS_Store
+
+# Bootstrap-only files that must never leave the developer machine.
+.founder-secret
+.reset-prod.sql

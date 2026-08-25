@@ -20,6 +20,7 @@ beforeAll(async () => {
 beforeEach(async () => {
   await env.DB.batch([
     env.DB.prepare("DELETE FROM events"),
+    env.DB.prepare("DELETE FROM comments"),
     env.DB.prepare("DELETE FROM submissions"),
     env.DB.prepare("DELETE FROM tasks"),
     env.DB.prepare("DELETE FROM quotas"),
@@ -27,7 +28,7 @@ beforeEach(async () => {
     env.DB.prepare("DELETE FROM members"),
     // Reset AUTOINCREMENT counters where they exist (SQLite).
     env.DB.prepare(
-      "DELETE FROM sqlite_sequence WHERE name IN ('events','submissions','tasks','members')",
+      "DELETE FROM sqlite_sequence WHERE name IN ('events','comments','submissions','tasks','members')",
     ),
   ]);
 });

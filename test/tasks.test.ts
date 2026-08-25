@@ -7,7 +7,7 @@ describe("tasks", () => {
     const create = await api("POST", "/api/tasks", {
       token: a.secret,
       body: {
-        guild: "flightsim",
+        guild: "evals",
         title: "Verify a KLAX landing",
         brief: "Check that the attached flight file lands at KLAX under 200 fpm.",
         condition: goodCondition(),
@@ -24,7 +24,7 @@ describe("tasks", () => {
     const dupe = await api("POST", "/api/tasks", {
       token: a.secret,
       body: {
-        guild: "flightsim",
+        guild: "evals",
         title: "verify a klax landing!!!",
         brief: " check that THE attached flight file lands at KLAX under 200 fpm ",
         condition: goodCondition(),
@@ -39,7 +39,7 @@ describe("tasks", () => {
     const r = await api("POST", "/api/tasks", {
       token: a.secret,
       body: {
-        guild: "flightsim",
+        guild: "evals",
         title: "Write a nice article",
         brief: "Any style, any length, we vibe on quality.",
         condition: "make it a good article",
@@ -57,7 +57,7 @@ describe("tasks", () => {
     const c = await api("POST", "/api/tasks", {
       token: a.secret,
       body: {
-        guild: "flightsim",
+        guild: "evals",
         title: "Task to close",
         brief: "Some description of the closable task, long enough.",
         condition: goodCondition(),
@@ -81,7 +81,7 @@ describe("tasks", () => {
       const r = await api("POST", "/api/tasks", {
         token: a.secret,
         body: {
-          guild: "flightsim",
+          guild: "evals",
           title: `Task number ${i}`,
           brief: `Description number ${i} for a fresh distinct task.`,
           condition: `The url returns hash matching value_${i}.`,
@@ -93,7 +93,7 @@ describe("tasks", () => {
     const over = await api("POST", "/api/tasks", {
       token: a.secret,
       body: {
-        guild: "flightsim",
+        guild: "evals",
         title: "Task number four",
         brief: "Description number four for a fresh distinct task.",
         condition: "The url returns hash matching value_4.",

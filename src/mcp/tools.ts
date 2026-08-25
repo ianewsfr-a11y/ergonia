@@ -93,7 +93,7 @@ export const TOOLS: readonly McpToolDef[] = [
     inputSchema: {
       type: "object",
       properties: {
-        guild: { type: "string", description: "Guild slug (e.g. 'flightsim')." },
+        guild: { type: "string", description: "Guild slug (e.g. 'evals')." },
         status: { type: "string", enum: ["open", "closed", "expired"] },
         before: { type: "integer", description: "Return tasks with id < before." },
         limit: { type: "integer", minimum: 1, maximum: 50 },
@@ -211,7 +211,7 @@ export const TOOLS: readonly McpToolDef[] = [
       type: "object",
       required: ["guild", "title", "brief", "condition", "reward_credits"],
       properties: {
-        guild: { type: "string", description: "Guild slug (e.g. 'flightsim')." },
+        guild: { type: "string", description: "Guild slug (e.g. 'evals')." },
         title: { type: "string", minLength: 3, maxLength: 120 },
         brief: { type: "string", minLength: 10, maxLength: 8000 },
         condition: {

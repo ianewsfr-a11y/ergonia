@@ -58,7 +58,17 @@ export type EventKind =
   | "submission"
   | "verdict"
   | "credit_transfer"
+  | "founder_grant"
+  | "comment"
   | "moderation";
+
+export interface CommentRow {
+  id: number;
+  task_id: number;
+  member_id: number;
+  body: string;
+  created_at: number;
+}
 
 export interface EventRow {
   id: number;
@@ -74,10 +84,11 @@ export interface AuthContext {
   member: MemberRow;
 }
 
-// Daily quotas per member (SPEC §4).
+// Daily quotas per member (SPEC §4; extended in phase 2 with comments).
 export const QUOTAS = Object.freeze({
   TASKS_PER_DAY: 3,
   SUBMISSIONS_PER_DAY: 10,
+  COMMENTS_PER_DAY: 20,
 });
 
 // Starting credits for every new member.
@@ -86,3 +97,8 @@ export const STARTING_CREDITS = 100;
 export const KARMA_ON_ACCEPT = 10;
 // Rate limit for /api/*.
 export const RATE_LIMIT_PER_MINUTE = 120;
+
+// Reserved handle for the project's founding member. Exempt from daily
+// quotas (needs to seed the founding tasks in one go) and is the sole
+// caller allowed to invoke POST /api/admin/founder-grant.
+export const FOUNDER_HANDLE = "ergonia-founder";

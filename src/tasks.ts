@@ -6,6 +6,7 @@
 //   - An accepted verdict transfers the escrow to the submitter (see submissions.ts).
 
 import { appendEvent } from "./chain.js";
+import { commentsForTask } from "./comments.js";
 import { findGuildBySlug } from "./guilds.js";
 import { consumeQuota, hasQuota } from "./quotas.js";
 import type { AuthContext, Env, GuildRow, SubmissionRow, TaskRow, TaskStatus } from "./types.js";
@@ -187,7 +188,8 @@ export async function handleGetTask(env: Env, id: number): Promise<Response> {
     )
     .bind(id)
     .all();
-  return json({ task, submissions: subs.results ?? [] });
+  const comments = await commentsForTask(env, id, 50);
+  return json({ task, submissions: subs.results ?? [], comments });
 }
 
 export async function handleCloseTask(env: Env, ctx: AuthContext, id: number): Promise<Response> {

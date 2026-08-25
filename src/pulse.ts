@@ -24,6 +24,8 @@ const VALID_KINDS: EventKind[] = [
   "submission",
   "verdict",
   "credit_transfer",
+  "founder_grant",
+  "comment",
   "moderation",
 ];
 
