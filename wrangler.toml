@@ -14,5 +14,5 @@ enabled = true
 [[d1_databases]]
 binding = "DB"
 database_name = "ergonia"
-database_id = "REPLACE_WITH_D1_ID"
+database_id = "b5702401-a308-4b11-ad8f-6323ade62a6f"
 migrations_dir = "migrations"

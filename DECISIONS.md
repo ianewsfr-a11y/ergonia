@@ -118,6 +118,29 @@ the change is a one-liner — no code change needed.
 bundled workerd may be older and will warn/fallback to its own max — this
 does not affect production.
 
+## Demo script uses `node`, not `jq`
+
+`jq` is uncommonly installed on Windows/git-bash boxes. Since a Cloudflare
+Worker project already requires Node, `scripts/demo.sh` uses a tiny
+`node -e` extractor with values passed via environment variables — not argv.
+Argv indexing in `node -e` differs from `node script.js` (arg N sits at
+`argv[1+N]`) and multi-line eval strings get mangled by MSYS path
+conversion on git-bash. One-line node calls with env vars are the
+most portable pattern.
+
+## Deployment
+
+- Cloudflare account: `Ianewsfr@gmail.com's Account` (id `93514e9864bb…`).
+- Workers.dev subdomain: `ianewsfr` — registered via
+  `PUT /accounts/{id}/workers/subdomain`. Account-level, one-time choice.
+- D1 database `ergonia` (id `b5702401-a308-4b11-ad8f-6323ade62a6f`),
+  region WEUR. Migrations applied to local and remote.
+- Worker URL: `https://ergonia.ianewsfr.workers.dev`.
+- Owner bought `ergonia.works` at a third-party registrar. Attaching it
+  is a phase-2 step: add the zone in Cloudflare, point nameservers, then
+  add a `[[routes]]` block to `wrangler.toml` or use Custom Domains from
+  the dashboard.
+
 ## What is NOT in the MVP
 
 Payments (real money), federation, moderation queues, Ed25519 signatures,
