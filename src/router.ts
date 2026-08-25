@@ -1,0 +1,111 @@
+// Tiny hand-rolled router. No framework — the surface is small (SPEC §5)
+// and the routes are static except for two integer id captures.
+
+import { resolveAuth } from "./auth.js";
+import { handleDoor, handleRobots } from "./door.js";
+import { handleListGuilds } from "./guilds.js";
+import { handleMcp, handleMcpRead } from "./mcp.js";
+import { handleLlmsTxt, handleMcpDiscovery, handleOpenApi } from "./openapi.js";
+import { handleAttest, handleEvents, handlePulse } from "./pulse.js";
+import { checkRateLimit } from "./quotas.js";
+import { handleCreateSubmission, handleVerdict } from "./submissions.js";
+import { handleCloseTask, handleCreateTask, handleGetTask, handleListTasks } from "./tasks.js";
+import { handleMe, handleMemberProfile, handleRegister } from "./society.js";
+import type { Env } from "./types.js";
+import { error, json } from "./util.js";
+
+export async function route(env: Env, request: Request): Promise<Response> {
+  const url = new URL(request.url);
+  const path = url.pathname;
+  const method = request.method.toUpperCase();
+
+  // Public "front door" and machine-facing surfaces are unauthenticated
+  // and not rate-limited (SPEC §2 — reads are unlimited, and these are read-only).
+  if (method === "GET" && path === "/") return handleDoor();
+  if (method === "GET" && path === "/robots.txt") return handleRobots();
+  if (method === "GET" && path === "/llms.txt") return handleLlmsTxt();
+  if (method === "GET" && path === "/openapi.json") return handleOpenApi();
+  if (method === "GET" && path === "/.well-known/mcp.json") return handleMcpDiscovery(request);
+
+  // /api/* is rate-limited (best-effort, per-IP-per-minute).
+  if (path.startsWith("/api/")) {
+    if (!(await checkRateLimit(env, request))) {
+      return error(429, "rate limit: 120 requests / minute / IP on /api/*");
+    }
+  }
+
+  if (method === "POST" && path === "/api/register") return handleRegister(env, request);
+
+  if (method === "GET" && path === "/api/guilds") return handleListGuilds(env);
+  if (method === "GET" && path === "/api/tasks") return handleListTasks(env, url);
+  if (method === "GET" && path === "/api/pulse") return handlePulse(env);
+  if (method === "GET" && path === "/api/events") return handleEvents(env, url);
+  if (method === "GET" && path === "/api/attest") return handleAttest(env);
+
+  const taskId = matchInt(path, /^\/api\/tasks\/(\d+)$/);
+  if (taskId !== null) {
+    if (method === "GET") return handleGetTask(env, taskId);
+    return error(405, "method not allowed");
+  }
+
+  const taskCloseId = matchInt(path, /^\/api\/tasks\/(\d+)\/close$/);
+  if (taskCloseId !== null) {
+    if (method !== "POST") return error(405, "method not allowed");
+    const auth = await resolveAuth(env, request);
+    if (!auth) return error(401, "unauthorized: send Authorization: Bearer erg_sk_...");
+    return handleCloseTask(env, auth, taskCloseId);
+  }
+
+  const memberHandle = matchStr(path, /^\/api\/members\/([a-z0-9][a-z0-9-]{2,31})$/);
+  if (memberHandle !== null) {
+    if (method !== "GET") return error(405, "method not allowed");
+    return handleMemberProfile(env, memberHandle);
+  }
+
+  if (method === "POST" && path === "/api/tasks") {
+    const auth = await resolveAuth(env, request);
+    if (!auth) return error(401, "unauthorized: send Authorization: Bearer erg_sk_...");
+    return handleCreateTask(env, auth, request);
+  }
+
+  if (method === "GET" && path === "/api/me") {
+    const auth = await resolveAuth(env, request);
+    if (!auth) return error(401, "unauthorized: send Authorization: Bearer erg_sk_...");
+    return handleMe(env, auth);
+  }
+
+  if (method === "POST" && path === "/api/submissions") {
+    const auth = await resolveAuth(env, request);
+    if (!auth) return error(401, "unauthorized: send Authorization: Bearer erg_sk_...");
+    return handleCreateSubmission(env, auth, request);
+  }
+
+  const verdictId = matchInt(path, /^\/api\/submissions\/(\d+)\/verdict$/);
+  if (verdictId !== null) {
+    if (method !== "POST") return error(405, "method not allowed");
+    const auth = await resolveAuth(env, request);
+    if (!auth) return error(401, "unauthorized: send Authorization: Bearer erg_sk_...");
+    return handleVerdict(env, auth, verdictId, request);
+  }
+
+  // MCP
+  if (method === "POST" && path === "/mcp") return handleMcp(env, request);
+  if (method === "POST" && path === "/mcp/read") return handleMcpRead(env, request);
+  if (method === "GET" && (path === "/mcp" || path === "/mcp/read")) {
+    return json({ note: "POST {tool, input} — see /.well-known/mcp.json" });
+  }
+
+  return error(404, `no route for ${method} ${path}`);
+}
+
+function matchInt(path: string, re: RegExp): number | null {
+  const m = re.exec(path);
+  if (!m) return null;
+  const n = Number(m[1]!);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+function matchStr(path: string, re: RegExp): string | null {
+  const m = re.exec(path);
+  return m ? m[1]! : null;
+}

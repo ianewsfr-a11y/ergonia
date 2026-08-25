@@ -1,0 +1,101 @@
+// Daily quotas (per member) and best-effort rate limit (per IP).
+//
+// Quotas: SPEC §4 — 3 tasks/day, 10 submissions/day, unlimited reads.
+// A validation-rejected write must NOT consume quota, so callers only
+// invoke consumeQuota() after every check has passed.
+//
+// Rate limit: 120 req/min/IP on /api/*. Uses a minute bucket key
+// stored in the rate_limits table.
+
+import type { Env, MemberRow } from "./types.js";
+import { QUOTAS, RATE_LIMIT_PER_MINUTE } from "./types.js";
+import { nowMs, utcDay } from "./util.js";
+
+export type QuotaKind = "tasks" | "subs";
+
+export interface QuotaSnapshot {
+  utc_day: string;
+  tasks_used: number;
+  tasks_left: number;
+  subs_used: number;
+  subs_left: number;
+}
+
+async function ensureQuotaRow(env: Env, memberId: number, day: string): Promise<void> {
+  await env.DB
+    .prepare(
+      "INSERT OR IGNORE INTO quotas (member_id, utc_day, tasks, subs) VALUES (?, ?, 0, 0)",
+    )
+    .bind(memberId, day)
+    .run();
+}
+
+async function readQuotaRow(env: Env, memberId: number, day: string): Promise<{ tasks: number; subs: number }> {
+  const row = await env.DB
+    .prepare("SELECT tasks, subs FROM quotas WHERE member_id = ? AND utc_day = ?")
+    .bind(memberId, day)
+    .first<{ tasks: number; subs: number }>();
+  return row ?? { tasks: 0, subs: 0 };
+}
+
+export async function snapshotQuotas(env: Env, member: MemberRow): Promise<QuotaSnapshot> {
+  const day = utcDay();
+  const row = await readQuotaRow(env, member.id, day);
+  return {
+    utc_day: day,
+    tasks_used: row.tasks,
+    tasks_left: Math.max(0, QUOTAS.TASKS_PER_DAY - row.tasks),
+    subs_used: row.subs,
+    subs_left: Math.max(0, QUOTAS.SUBMISSIONS_PER_DAY - row.subs),
+  };
+}
+
+// Returns true if the caller has budget left (does NOT consume).
+export async function hasQuota(env: Env, member: MemberRow, kind: QuotaKind): Promise<boolean> {
+  const snap = await snapshotQuotas(env, member);
+  return kind === "tasks" ? snap.tasks_left > 0 : snap.subs_left > 0;
+}
+
+// Charge one unit of quota. Callers must have already validated inputs.
+export async function consumeQuota(env: Env, member: MemberRow, kind: QuotaKind): Promise<void> {
+  const day = utcDay();
+  await ensureQuotaRow(env, member.id, day);
+  const col = kind === "tasks" ? "tasks" : "subs";
+  await env.DB
+    .prepare(`UPDATE quotas SET ${col} = ${col} + 1 WHERE member_id = ? AND utc_day = ?`)
+    .bind(member.id, day)
+    .run();
+}
+
+// Best-effort rate limit per (IP, minute). Returns false when over the cap.
+export async function checkRateLimit(env: Env, request: Request): Promise<boolean> {
+  const ip = clientIp(request);
+  const bucketMin = new Date(nowMs()).toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM
+  const bucket = `${ip}|${bucketMin}`;
+  const expires = nowMs() + 65_000;
+  await env.DB
+    .prepare(
+      "INSERT INTO rate_limits (bucket, hits, expires) VALUES (?, 1, ?) " +
+        "ON CONFLICT(bucket) DO UPDATE SET hits = hits + 1, expires = excluded.expires",
+    )
+    .bind(bucket, expires)
+    .run();
+  const row = await env.DB
+    .prepare("SELECT hits FROM rate_limits WHERE bucket = ?")
+    .bind(bucket)
+    .first<{ hits: number }>();
+  const hits = row?.hits ?? 1;
+  // Opportunistic cleanup — cheap.
+  if (hits % 30 === 0) {
+    await env.DB.prepare("DELETE FROM rate_limits WHERE expires < ?").bind(nowMs()).run();
+  }
+  return hits <= RATE_LIMIT_PER_MINUTE;
+}
+
+function clientIp(request: Request): string {
+  return (
+    request.headers.get("cf-connecting-ip") ??
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    "0.0.0.0"
+  );
+}

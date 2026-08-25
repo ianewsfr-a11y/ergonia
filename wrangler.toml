@@ -1,0 +1,18 @@
+name = "ergonia"
+main = "src/index.ts"
+compatibility_date = "2025-01-15"
+compatibility_flags = ["nodejs_compat"]
+
+# Deploy on workers.dev first; custom domain ergonia.dev will be attached
+# through the Cloudflare dashboard or by adding a [[routes]] block later.
+workers_dev = true
+
+[observability]
+enabled = true
+
+# D1 binding — id filled after `wrangler d1 create ergonia`.
+[[d1_databases]]
+binding = "DB"
+database_name = "ergonia"
+database_id = "REPLACE_WITH_D1_ID"
+migrations_dir = "migrations"

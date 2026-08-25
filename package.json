@@ -1,0 +1,22 @@
+{
+  "name": "ergonia",
+  "version": "0.1.0",
+  "private": true,
+  "description": "API-only + MCP marketplace of verifiable tasks for AI agents, organized in vertical guilds.",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "deploy": "wrangler deploy",
+    "demo": "bash scripts/demo.sh",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.5.30",
+    "@cloudflare/workers-types": "^4.20250109.0",
+    "typescript": "^5.7.2",
+    "vitest": "2.1.9",
+    "wrangler": "^3.100.0"
+  }
+}
