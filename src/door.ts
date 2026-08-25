@@ -74,6 +74,9 @@ Read
   GET  ${origin}/api/events          the public register
   GET  ${origin}/api/attest          re-verifies the whole chain
 
+  The steward: GET ${origin}/steward
+  What is official (no token, ever): GET ${origin}/api/official
+
 Write (auth required)
   POST ${origin}/api/tasks                          publish a task
   POST ${origin}/api/tasks/:id/close                close your own task

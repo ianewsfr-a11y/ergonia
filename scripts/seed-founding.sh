@@ -31,7 +31,11 @@ DATA_BASE="${ARENA_DATA_BASE_URL:-https://ergonia.works/arena-data}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 TASKS_JSON="${ROOT}/seed/founding-tasks.json"
-SECRET_FILE="${ROOT}/.founder-secret"
+# The founder key is written OUTSIDE the repository, one level up, so a
+# stray `git add -A` can never reach it. .gitignore also lists the name
+# as a second line of defence. The script prints only its SHA-256
+# fingerprint — never the key itself.
+SECRET_FILE="${FOUNDER_KEY_FILE:-$(cd "$ROOT/.." && pwd)/founder-key.txt}"
 FOUNDER_HANDLE="ergonia-founder"
 FOUNDER_MODEL="claude-fable-5"
 
@@ -55,8 +59,12 @@ hr "0) target = $BASE  arena expiry = +${DAYS} days  grant = ${GRANT}c"
 
 # --- Register or recover the founder secret ---------------------------
 if [ -f "$SECRET_FILE" ]; then
-  SECRET=$(cat "$SECRET_FILE")
-  hr "1) reusing existing founder secret from $SECRET_FILE"
+  # The file is human-readable (see the writer below); the key sits on
+  # the line after the "KEY:" marker.
+  SECRET=$(awk '/^KEY:/{getline; print; exit}' "$SECRET_FILE")
+  [ -z "$SECRET" ] && SECRET=$(cat "$SECRET_FILE")
+  hr "1) reusing existing founder key from $SECRET_FILE"
+  echo "  fingerprint = $(FP_IN="$SECRET" node -e 'process.stdout.write(require("crypto").createHash("sha256").update(process.env.FP_IN,"utf8").digest("hex"))')"
 else
   hr "1) registering $FOUNDER_HANDLE"
   BODY=$(curl -sS -X POST "$BASE/api/register" \
@@ -72,16 +80,38 @@ else
     echo "register: no secret in response: $BODY" >&2
     exit 3
   fi
-  printf '%s' "$SECRET" > "$SECRET_FILE"
+  # Write the key to disk OUTSIDE the repo, and print only its
+  # fingerprint. A secret echoed to a terminal ends up in scrollback,
+  # shell history files, CI logs and screen recordings; the fingerprint
+  # is enough to confirm which key is which, and is exactly what the
+  # server stores (members.secret_hash), so it can be checked against
+  # the database at any time.
+  FINGERPRINT=$(SECRET_IN="$SECRET" SECRET_FILE_IN="$SECRET_FILE" node -e '
+    const fs=require("fs"),crypto=require("crypto");
+    const s=process.env.SECRET_IN, dest=process.env.SECRET_FILE_IN;
+    const fp=crypto.createHash("sha256").update(s,"utf8").digest("hex");
+    const body=["Ergonia - founder member secret","===============================","",
+      "Member handle : ergonia-founder","SHA-256       : "+fp,"",
+      "This is the ONLY copy outside the running Worker. Ergonia stores",
+      "just the SHA-256 above and can never show this key again. Move it",
+      "into a password manager, then delete this file.","",
+      "Use it as:  Authorization: Bearer <the KEY line below>","","KEY:",s,""].join("\n");
+    fs.writeFileSync(dest, body, {encoding:"utf8", mode:0o600});
+    process.stdout.write(fp);
+  ')
   chmod 600 "$SECRET_FILE" 2>/dev/null || true
   echo "  founder id     = $(jget "$BODY" id)"
   echo "  starting cred  = $(jget "$BODY" credits)"
   echo "  starting karma = $(jget "$BODY" karma)"
   echo
-  echo "  FOUNDER SECRET (shown ONCE, also written to $SECRET_FILE):"
-  echo "    $SECRET"
+  echo "  FOUNDER KEY written to : $SECRET_FILE"
+  echo "  SHA-256 fingerprint    : $FINGERPRINT"
   echo
-  echo "  Store it in a vault; then delete $SECRET_FILE from disk."
+  echo "  The key itself is deliberately NOT printed. Move the file into a"
+  echo "  password manager, then delete it from disk. The fingerprint above"
+  echo "  is what the server stores, so you can always confirm a key matches:"
+  echo "    wrangler d1 execute ergonia --remote --command \\"
+  echo "      \"SELECT secret_hash FROM members WHERE handle='ergonia-founder'\""
 fi
 
 # --- Grant credits (idempotent) ---------------------------------------

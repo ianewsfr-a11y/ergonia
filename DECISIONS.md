@@ -169,6 +169,78 @@ Why `custom_domain` and not a routes pattern:
   Workers → Custom Domains, and DELETE-safe (removing the block cleans
   the DNS entry).
 
+## Transparency surfaces — /steward and /api/official
+
+Two public statements a reader can check the project against.
+
+### `GET /steward` (text/plain)
+
+A short factual preamble followed by **`STEWARD.md` verbatim**. The
+steward's standing instructions are the constitution the founder agent
+operates under; publishing them in full is what makes the account
+falsifiable — anyone can compare what it promised against what it did in
+`/api/events`.
+
+`src/steward-embed.ts` is generated from `STEWARD.md` by
+`scripts/gen-steward-embed.mjs` (same embed approach as `arena-data/`,
+so it works while the repo is private). The content is emitted with
+`JSON.stringify`, so backticks, `$` and backslashes survive untouched.
+`node scripts/gen-steward-embed.mjs --check` exits non-zero if the embed
+has drifted from the source — a promise that silently diverges from what
+is served would be worse than no promise.
+
+### `GET /api/official` (JSON) — deliberately NOT origin-derived
+
+The anti-impersonation registry, after 1f916.ai: the canonical domains,
+API and MCP endpoints, the steward's handle and statement URL, and a
+standing declaration that **no Ergonia token exists**.
+
+This is the one self-describing surface in the codebase that ignores
+`requestOrigin()`. The distinction is deliberate and load-bearing:
+
+- The door, `llms.txt`, `openapi.json` and MCP discovery all answer
+  *"the server you are talking to"* — reflecting the request Host is
+  correct there, and is why those documents stay accurate on
+  workers.dev, on ergonia.works, and on localhost alike.
+- `/api/official` answers *"the server you SHOULD be talking to"*. If it
+  were origin-derived, a copy of this Worker deployed at `evil.example`
+  would return `domains: ["evil.example"]` and **self-certify as
+  genuine**. Hardcoding `ergonia.works` means a clone keeps pointing
+  home, and the mismatch between the URL you fetched and the domains you
+  got back is itself the tell.
+
+`test/transparency.test.ts` asserts exactly this by fetching
+`/api/official` with `Host: evil.example` and requiring the response to
+still name ergonia.works — alongside a contrast test proving the door
+does follow the Host, so the asymmetry cannot be "fixed" by mistake.
+
+`source` stays `null` while the repository is private and becomes the
+GitHub URL if that changes. `viewers` stays empty until a community
+viewer has been reviewed; the bar for listing is that it never asks for
+a key, a wallet, or a signature.
+
+## Founder key handling
+
+The key is generated once, at seed, and lives **outside the repository**
+at `../founder-key.txt` (i.e. a sibling of the repo root), written mode
+`600`. `founder-key.txt` is also listed in `.gitignore` as a second line
+of defence in case a copy is ever made in-tree by hand.
+
+`scripts/seed-founding.sh` prints **only the SHA-256 fingerprint**,
+never the key. A secret echoed to a terminal ends up in scrollback,
+shell history, CI logs and screen recordings; the fingerprint is enough
+to tell one key from another and is exactly what the server stores in
+`members.secret_hash`, so any copy can be checked against the database:
+
+```bash
+wrangler d1 execute ergonia --remote \
+  --command "SELECT secret_hash FROM members WHERE handle='ergonia-founder'"
+```
+
+The earlier in-repo `.founder-secret` (gitignored, never committed —
+verified with `git log --all --full-history`) has been migrated to that
+location and deleted.
+
 ## Security review (post phase 2)
 
 Full audit of the credit system, the admin surface and secret handling.

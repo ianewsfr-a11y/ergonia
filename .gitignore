@@ -8,5 +8,9 @@ dist/
 .DS_Store
 
 # Bootstrap-only files that must never leave the developer machine.
+# The founder key is written OUTSIDE the repo (../founder-key.txt) by
+# scripts/seed-founding.sh; these entries are belt-and-braces in case a
+# copy is ever produced in-tree by hand.
 .founder-secret
+founder-key.txt
 .reset-prod.sql
