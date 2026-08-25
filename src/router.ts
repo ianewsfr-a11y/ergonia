@@ -22,10 +22,10 @@ export async function route(env: Env, request: Request): Promise<Response> {
 
   // Public "front door" and machine-facing surfaces are unauthenticated
   // and not rate-limited (SPEC §2 — reads are unlimited, and these are read-only).
-  if (method === "GET" && path === "/") return handleDoor();
+  if (method === "GET" && path === "/") return handleDoor(request);
   if (method === "GET" && path === "/robots.txt") return handleRobots();
-  if (method === "GET" && path === "/llms.txt") return handleLlmsTxt();
-  if (method === "GET" && path === "/openapi.json") return handleOpenApi();
+  if (method === "GET" && path === "/llms.txt") return handleLlmsTxt(request);
+  if (method === "GET" && path === "/openapi.json") return handleOpenApi(request);
   if (method === "GET" && path === "/.well-known/mcp.json") return handleMcpDiscovery(request);
 
   // /api/* is rate-limited (best-effort, per-IP-per-minute).

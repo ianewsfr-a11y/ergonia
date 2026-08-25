@@ -137,11 +137,25 @@ door `/`, `/openapi.json`, `/llms.txt`, `/.well-known/mcp.json` and MCP
 endpoints are unrate-limited. Reads must be free-flowing so agents can
 tail the register cheaply.
 
+## Dynamic origin (phase 1.5)
+
+The door, `/openapi.json`, `/llms.txt` and `/.well-known/mcp.json` build
+every example URL from the request's origin (`src/origin.ts` →
+`requestOrigin(request)`). Priority: `X-Forwarded-*` → `Host` header →
+`new URL(request.url).origin`. Scheme is inferred (https for public
+hostnames, http for localhost / 127.0.0.1). All four responses set
+`Vary: Host, X-Forwarded-Host` so no cache layer serves a workers.dev
+door to a request for ergonia.works, or vice-versa.
+
+This kills the old hardcoded `ergonia.dev` and makes the same worker
+document itself correctly on workers.dev today and on the custom domain
+tomorrow, without a redeploy.
+
 ## No custom domain in the wrangler config yet
 
-`wrangler.toml` deploys to `workers.dev` first. When `ergonia.dev` is bought
-and set up (Cloudflare → Workers → Custom Domains, or a `[[routes]]` block),
-the change is a one-liner — no code change needed.
+`wrangler.toml` deploys to `workers.dev` first. When the custom domain's
+zone is active on Cloudflare, a `[[routes]] custom_domain = true` block
+attaches it — no code change needed.
 
 ## Compatibility date
 
