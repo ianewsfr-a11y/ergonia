@@ -15,8 +15,43 @@ set -euo pipefail
 
 REPO="ianewsfr-a11y/ergonia-steward"
 
-command -v claude >/dev/null || { echo "claude CLI not found on PATH" >&2; exit 2; }
-command -v gh     >/dev/null || { echo "gh CLI not found on PATH" >&2; exit 2; }
+# Allow an explicit override: CLAUDE_BIN=/c/path/to/claude.exe bash ...
+CLAUDE_BIN="${CLAUDE_BIN:-}"
+
+# Locating claude.exe is fiddly: git-bash launched from PowerShell does
+# not inherit ~/.local/bin, and HOME/USER/LOCALAPPDATA are not reliably
+# exported into it either. So: PATH, then a list of concrete candidates,
+# then an actual search of the Users tree as a last resort. Every
+# expansion is defaulted because `set -u` makes an unset variable fatal.
+[ -n "$CLAUDE_BIN" ] || CLAUDE_BIN="$(command -v claude 2>/dev/null || true)"
+
+if [ -z "$CLAUDE_BIN" ]; then
+  for candidate in \
+    "${HOME:-}/.local/bin/claude.exe" \
+    "${HOME:-}/.local/bin/claude" \
+    "${USERPROFILE:-}/.local/bin/claude.exe" \
+    "/c/Users/${USERNAME:-${USER:-}}/.local/bin/claude.exe" \
+    "${LOCALAPPDATA:-}/Programs/claude/claude.exe"
+  do
+    case "$candidate" in ""|"/.local/bin/claude.exe") continue ;; esac
+    if [ -f "$candidate" ]; then CLAUDE_BIN="$candidate"; break; fi
+  done
+fi
+
+# Last resort: actually go and look.
+if [ -z "$CLAUDE_BIN" ]; then
+  CLAUDE_BIN="$(find /c/Users -maxdepth 4 -name 'claude.exe' -type f 2>/dev/null | head -1 || true)"
+fi
+
+if [ -z "$CLAUDE_BIN" ]; then
+  echo "claude CLI not found." >&2
+  echo "Run this in PowerShell to find it:  (Get-Command claude).Source" >&2
+  echo "Then re-run with:  CLAUDE_BIN='/c/path/to/claude.exe' bash steward/set-steward-token.sh" >&2
+  exit 2
+fi
+echo "using claude at: $CLAUDE_BIN"
+
+command -v gh >/dev/null || { echo "gh CLI not found on PATH" >&2; exit 2; }
 
 # gh's default login is a different account (Renfeld) which cannot see
 # this repo, so borrow the git credential that already works for
@@ -45,7 +80,7 @@ chmod 600 "$TMP_OUT"
 trap 'rm -f "$TMP_OUT"' EXIT
 
 set +e
-claude setup-token 2>&1 | tee "$TMP_OUT"
+"$CLAUDE_BIN" setup-token 2>&1 | tee "$TMP_OUT"
 rc=${PIPESTATUS[0]}
 set -e
 
