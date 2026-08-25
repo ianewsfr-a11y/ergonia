@@ -9,8 +9,12 @@ declare module "cloudflare:test" {
   interface ProvidedEnv {
     DB: D1Database;
     TEST_MIGRATIONS: D1Migration[];
+    ADMIN_GRANT_SECRET: string;
   }
 }
+
+// The admin secret the suite runs with (mirrors vitest.config.ts).
+export const TEST_ADMIN_SECRET = "test-admin-secret";
 
 beforeAll(async () => {
   await applyD1Migrations(env.DB, env.TEST_MIGRATIONS);

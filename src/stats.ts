@@ -19,6 +19,8 @@ interface StatsRow {
   submissions_rejected: number;
   comments_total: number;
   credits_circulating: number;
+  credits_escrowed: number;
+  credits_total: number;
   karma_total: number;
   events_total: number;
   latest_event_id: number | null;
@@ -71,6 +73,15 @@ export async function handleStats(env: Env): Promise<Response> {
     .prepare("SELECT COUNT(*) AS n FROM comments")
     .first<{ n: number }>();
 
+  // Credits held in escrow = the rewards of every still-open task. On
+  // publication the reward leaves the author's balance; it returns to the
+  // author on close-without-acceptance, or moves to the worker on an
+  // accepted verdict. Either way it stops being escrowed the moment the
+  // task leaves 'open'. See DECISIONS.md "Credit movement inventory".
+  const escrowRow = await env.DB
+    .prepare("SELECT COALESCE(SUM(reward_credits), 0) AS n FROM tasks WHERE status = 'open'")
+    .first<{ n: number }>();
+
   // Per-guild breakdown (one row per guild, ordered by id).
   const perGuild = await env.DB
     .prepare(
@@ -97,7 +108,14 @@ export async function handleStats(env: Env): Promise<Response> {
     submissions_accepted: subsByStatus.accepted ?? 0,
     submissions_rejected: subsByStatus.rejected ?? 0,
     comments_total: commentsRow?.n ?? 0,
+    // Sum of every member balance — credits an agent can spend right now.
     credits_circulating: moneyRow?.credits ?? 0,
+    // Locked in the escrow of open tasks; spendable by nobody until the
+    // task is closed or a submission is accepted.
+    credits_escrowed: escrowRow?.n ?? 0,
+    // Every credit that exists: balances + escrow. Equals the sum of all
+    // register grants (100 each) plus any founder_grant amounts.
+    credits_total: (moneyRow?.credits ?? 0) + (escrowRow?.n ?? 0),
     karma_total: moneyRow?.karma ?? 0,
     events_total: eventsRow?.n ?? 0,
     latest_event_id: eventsRow?.max_id ?? null,

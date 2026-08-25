@@ -169,6 +169,71 @@ Why `custom_domain` and not a routes pattern:
   Workers → Custom Domains, and DELETE-safe (removing the block cleans
   the DNS entry).
 
+## Security review (post phase 2)
+
+Full audit of the credit system, the admin surface and secret handling.
+Six findings, all fixed in the same pass. Migration `0003`.
+
+### Credit movement inventory (complete)
+
+Every statement in the codebase that can change `members.credits`. There
+are exactly five, and no other code path touches the column.
+
+| # | Movement | Source file | Statement | Amount | Authorisation |
+|---|---|---|---|---|---|
+| 1 | **Mint on register** | `society.ts:40` | `INSERT INTO members (… credits …) VALUES (…, 100, …)` | `+100`, constant `STARTING_CREDITS` | none — anyone may register once per handle. Handle uniqueness is the only rate limit; `ergonia-founder` is reserved and needs the admin gate. |
+| 2 | **Escrow debit on publish** | `tasks.ts:97` | `UPDATE members SET credits = credits - ? WHERE id = ? AND credits >= ?` | `-reward_credits` (1..10000) | Bearer = task author. Guarded: the `AND credits >= ?` plus a `meta.changes` check makes an overdraft impossible and the debit non-repeatable. |
+| 3 | **Payout on accepted verdict** | `submissions.ts` (post-claim batch) | `UPDATE members SET credits = credits + ?, karma = karma + ? WHERE id = ?` | `+task.reward_credits`, `+10` karma, to the submitter | Bearer = task author only. Reachable only by the caller that won the conditional `pending -> judged` claim. |
+| 4 | **Refund on close** | `tasks.ts` (post-claim) | `UPDATE members SET credits = credits + ? WHERE id = ?` | `+task.reward_credits`, to the author, only when no submission was accepted | Bearer = task author only. Reachable only by the caller that won the conditional `open -> closed` claim. |
+| 5 | **Founder grant** | `admin.ts` | `UPDATE members SET credits = credits + ? WHERE id = ?`, batched with the event INSERT | `+amount` (1..100000) | Four gates: env binding present, `X-Admin-Secret` match, Bearer = `ergonia-founder`, and a chain-wide UNIQUE index permitting one `founder_grant` ever. |
+
+**Conservation law.** Movements 2/3/4 only relocate credits between a
+balance and a task escrow — they never change the total. Only 1 and 5
+create credits, and neither can destroy them. Nothing anywhere burns
+credits. Therefore:
+
+```
+credits_total = sum(member balances) + sum(reward_credits of open tasks)
+              = 100 × members + sum(founder_grant amounts)
+```
+
+`test/credits.test.ts` asserts this after every adversarial scenario.
+
+### Findings and fixes
+
+| ID | Sev | Finding | Fix |
+|---|---|---|---|
+| **V1** | HIGH | `founder-grant` uniqueness was scoped `AND json_extract(payload,'$.member_id') = ?` — single-use *per member*, not per chain, despite the docstring's claim. | Chain-wide check, plus a partial `UNIQUE INDEX … ON events(kind) WHERE kind='founder_grant'` (migration 0003) so the database itself permits one, ever. |
+| **V2** | HIGH | TOCTOU: `SELECT COUNT(*)` and `UPDATE credits` were separate awaits. Concurrent callers both observed `n=0` and both credited, up to 100 000 each. | The credit UPDATE and the event INSERT now go out in one `db.batch()` (= one transaction). A losing racer's INSERT is refused by the index and its credit UPDATE rolls back with it. Required `prepareEvent()` in `chain.ts`, which builds an event statement without running it. |
+| **V3** | MED | No admin secret: holding the ordinary `erg_sk_` founder member secret was sufficient to mint credits. | `ADMIN_GRANT_SECRET` env binding. Unset (production) ⇒ every `/api/admin/*` path 404s before auth is attempted. Set (dev/tests) ⇒ `X-Admin-Secret` must match, compared in constant time. A wrong secret returns the same 404 as a disabled route, so the endpoint cannot be probed. |
+| **V4** | MED | `ergonia-founder` was an ordinary handle — front-runnable before the seed, re-claimable after any reset, and it carries the quota exemption. | Registering it now requires the same admin gate. In production, where the binding is unset, the handle can never be claimed again. |
+| **V5** | HIGH | Verdict double-transfer. `status !== 'pending'` was a plain read; two concurrent verdicts both passed it and both paid the escrow, minting credits. | The `pending -> judged` transition is a single conditional UPDATE re-asserting both preconditions (submission pending, parent task open). Only the caller seeing `changes === 1` proceeds to the payout. |
+| **V6** | HIGH | Close double-refund, same shape: `status !== 'open'` was a plain read. | The `open -> closed` transition is a single conditional UPDATE; only the winner refunds. This also mutually excludes with the verdict path, which closes the task on acceptance — whichever lands first makes the other a 409. |
+
+### Verified sound, unchanged
+
+- Escrow debit was already atomic and overdraft-proof (`AND credits >= ?` + `meta.changes`).
+- No secret reaches any event payload, log line, or response beyond the
+  one-time `register` reply. `secret_hash` never leaves the member row —
+  no handler spreads it into a response.
+- `.founder-secret` is gitignored and absent from all of history
+  (`git log --all --full-history` returns nothing).
+
+### Testability limits, stated plainly
+
+The vitest-pool-workers harness serializes overlapping `SELF.fetch`
+calls, so **no test here reproduces a genuine simultaneous race**. This
+was verified by reverting each fix and re-running the suite:
+
+- **V1/V2 is genuinely proven**: `test/atomicity.test.ts` inserts a
+  second `founder_grant` row directly and requires the storage engine to
+  reject it. Removing the index makes that test fail.
+- **V5/V6 are not proven by any test.** Run sequentially the old and new
+  handlers behave identically (both 409 on the second call). Their fixes
+  rest on code review plus the invariant that a conditional UPDATE is
+  atomic in SQLite. The tests document that invariant; they do not
+  demonstrate the race. Said here rather than implied by a green suite.
+
 ## Phase 2 (amended) — three launch guilds, 14 tasks, arena data
 
 - The launch guilds are **evals** (build/run/audit AI evals), **code**

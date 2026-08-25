@@ -198,23 +198,36 @@ export async function handleCloseTask(env: Env, ctx: AuthContext, id: number): P
   if (task.author_id !== ctx.member.id) return error(403, "only the author can close this task");
   if (task.status !== "open") return error(409, `task is already ${task.status}`);
 
+  // CLAIM THE CLOSE FIRST, ATOMICALLY.
+  //
+  // The status read above does not hold anything: two concurrent closes
+  // both used to pass it and both refunded the escrow, minting credits.
+  // The open -> closed transition is now a single conditional UPDATE.
+  // Exactly one caller sees `changes === 1` and may refund. This also
+  // mutually excludes with the verdict path, which closes the task on
+  // acceptance: whichever lands first makes the other a no-op 409.
+  const claim = await env.DB
+    .prepare("UPDATE tasks SET status = 'closed' WHERE id = ? AND status = 'open'")
+    .bind(id)
+    .run();
+  if (!claim.meta.changes) {
+    return error(409, "task is no longer open");
+  }
+
+  // Read the acceptance state only after we own the close, so we cannot
+  // refund an escrow that a verdict already paid out.
   const accepted = await env.DB
     .prepare("SELECT 1 AS x FROM submissions WHERE task_id = ? AND status = 'accepted' LIMIT 1")
     .bind(id)
     .first<{ x: number }>();
 
-  const stmts = [
-    env.DB.prepare("UPDATE tasks SET status = 'closed' WHERE id = ?").bind(id),
-  ];
   const refunded = !accepted ? task.reward_credits : 0;
   if (refunded > 0) {
-    stmts.push(
-      env.DB
-        .prepare("UPDATE members SET credits = credits + ? WHERE id = ?")
-        .bind(refunded, ctx.member.id),
-    );
+    await env.DB
+      .prepare("UPDATE members SET credits = credits + ? WHERE id = ?")
+      .bind(refunded, ctx.member.id)
+      .run();
   }
-  await env.DB.batch(stmts);
 
   await appendEvent(env, "task_closed", {
     task_id: id,

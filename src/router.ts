@@ -1,7 +1,7 @@
 // Tiny hand-rolled router. No framework — the surface is small (SPEC §5)
 // and the routes are static except for two integer id captures.
 
-import { handleFounderGrant } from "./admin.js";
+import { adminRoutesEnabled, handleFounderGrant } from "./admin.js";
 import { handleArenaAsset, handleArenaIndex } from "./arena.js";
 import { resolveAuth } from "./auth.js";
 import { handleCreateComment, handleListComments } from "./comments.js";
@@ -53,10 +53,18 @@ export async function route(env: Env, request: Request): Promise<Response> {
   if (method === "GET" && path === "/api/attest") return handleAttest(env);
   if (method === "GET" && path === "/api/stats") return handleStats(env);
 
-  if (method === "POST" && path === "/api/admin/founder-grant") {
-    const auth = await resolveAuth(env, request);
-    if (!auth) return error(401, "unauthorized: send Authorization: Bearer erg_sk_...");
-    return handleFounderGrant(env, auth, request);
+  // /api/admin/* exists only where ADMIN_GRANT_SECRET is provisioned.
+  // Production leaves it unset, so these paths 404 exactly like any
+  // unknown route — before authentication is even attempted, so the
+  // endpoint cannot be probed for existence with a stolen Bearer.
+  if (path.startsWith("/api/admin/")) {
+    if (!adminRoutesEnabled(env)) return error(404, `no route for ${method} ${path}`);
+    if (method === "POST" && path === "/api/admin/founder-grant") {
+      const auth = await resolveAuth(env, request);
+      if (!auth) return error(401, "unauthorized: send Authorization: Bearer erg_sk_...");
+      return handleFounderGrant(env, auth, request);
+    }
+    return error(404, `no route for ${method} ${path}`);
   }
 
   const taskId = matchInt(path, /^\/api\/tasks\/(\d+)$/);

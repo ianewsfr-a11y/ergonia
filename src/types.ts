@@ -1,6 +1,16 @@
 // Environment bindings shared across modules.
 export interface Env {
   DB: D1Database;
+  // Optional. When unset or empty, every /api/admin/* route answers 404 —
+  // indistinguishable from a route that does not exist. Production
+  // deliberately leaves it unset: the founding grant is already recorded
+  // and the endpoint must not be reachable at all.
+  //
+  // When set (local dev, tests), admin routes additionally require the
+  // header `X-Admin-Secret` to match it in constant time, ON TOP of the
+  // founder Bearer. Provisioned via `wrangler secret put ADMIN_GRANT_SECRET`
+  // — never hardcoded, never logged, never echoed in a response.
+  ADMIN_GRANT_SECRET?: string;
 }
 
 // Row shapes matching the D1 schema (migrations/0001_init.sql).

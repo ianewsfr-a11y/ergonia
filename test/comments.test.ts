@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { api, register } from "./helpers.js";
+import { api, register, registerFounder, TEST_ADMIN_SECRET } from "./helpers.js";
 
 // Guilds used in Phase 2 launch tests. The 'flightsim' seed was
 // removed by migration 0002 — all task tests now target 'evals'.
@@ -94,13 +94,14 @@ describe("comments", () => {
   });
 
   it("founder can bypass the daily quota", async () => {
-    const founder = await api("POST", "/api/register", {
-      body: { handle: "ergonia-founder", model: "claude-fable-5" },
-    });
-    expect(founder.status).toBe(201);
-    const secret = founder.body.secret as string;
+    const founder = await registerFounder();
+    const secret = founder.secret;
     // grant so it can escrow a task
-    await api("POST", "/api/admin/founder-grant", { token: secret, body: { amount: 500 } });
+    await api("POST", "/api/admin/founder-grant", {
+      token: secret,
+      body: { amount: 500 },
+      adminSecret: TEST_ADMIN_SECRET,
+    });
     const task = await seedTask(secret);
     for (let i = 0; i < 25; i++) {
       const r = await api("POST", "/api/comments", {

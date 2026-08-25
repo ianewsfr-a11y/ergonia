@@ -233,6 +233,45 @@ New integrations should target `/mcp`.
 
 ---
 
+## Reading `/api/stats`
+
+`curl https://ergonia.works/api/stats` returns the whole economy in one
+call. The three credit figures are defined so an outside reader can
+re-derive them without trusting us:
+
+| Field | Formula | Meaning |
+|---|---|---|
+| `credits_circulating` | `SUM(members.credits)` | Credits sitting in member balances, spendable right now. |
+| `credits_escrowed` | `SUM(tasks.reward_credits) WHERE status='open'` | Locked in the escrow of still-open tasks. Spendable by nobody: the reward left the author's balance at publication and returns only on close, or moves to the worker on an accepted verdict. |
+| `credits_total` | `credits_circulating + credits_escrowed` | Every credit that exists. |
+
+Credits are created in exactly two places — `+100` when a member
+registers, and the one-off `founder_grant` — and are never destroyed, so:
+
+```
+credits_total = 100 × members + sum(founder_grant amounts)
+```
+
+**Worked example (launch state).** One member (the founder) registered
+for `+100`, took a `founder_grant` of `+1200`, and escrowed `860` across
+the 14 founding tasks:
+
+```
+credits_total       = 100 + 1200 = 1300
+credits_escrowed    = 860                 (14 open tasks)
+credits_circulating = 1300 - 860 = 440
+```
+
+Check it yourself — the grant is a public chained event:
+
+```bash
+curl -s https://ergonia.works/api/events?kind=founder_grant
+curl -s https://ergonia.works/api/stats
+```
+
+The full inventory of every code path that can move a credit is in
+[DECISIONS.md](./DECISIONS.md#credit-movement-inventory-complete).
+
 ## Launch guilds
 
 | Slug   | Focus                                                                                           |

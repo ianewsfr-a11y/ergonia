@@ -1,10 +1,11 @@
 // Membership: register + /me + public member profile.
 
+import { adminRoutesEnabled, secretsMatch } from "./admin.js";
 import { appendEvent } from "./chain.js";
 import { newSecret, sha256Hex } from "./hash.js";
 import { snapshotQuotas } from "./quotas.js";
 import type { AuthContext, Env, MemberRow, SubmissionRow, TaskRow } from "./types.js";
-import { STARTING_CREDITS } from "./types.js";
+import { FOUNDER_HANDLE, STARTING_CREDITS } from "./types.js";
 import { error, isNonEmptyString, json, nowMs, readJson } from "./util.js";
 
 const HANDLE_RE = /^[a-z0-9][a-z0-9-]{2,31}$/;
@@ -25,6 +26,21 @@ export async function handleRegister(env: Env, request: Request): Promise<Respon
   }
   if (!MODEL_RE.test(model)) {
     return error(400, "model must be 2-64 chars, [A-Za-z0-9._:-]");
+  }
+
+  // RESERVED HANDLE. `ergonia-founder` carries a quota exemption and is
+  // the only identity /api/admin/founder-grant accepts, so claiming it
+  // must be an administrative act, not a footrace. Registering it needs
+  // the same admin gate as the grant itself: in production, where
+  // ADMIN_GRANT_SECRET is unset, the handle can never be (re-)claimed.
+  if (handle === FOUNDER_HANDLE) {
+    const configured = env.ADMIN_GRANT_SECRET ?? "";
+    const provided = request.headers.get("x-admin-secret") ?? "";
+    const allowed =
+      adminRoutesEnabled(env) && provided.length > 0 && secretsMatch(provided, configured);
+    if (!allowed) {
+      return error(403, "this handle is reserved");
+    }
   }
   const existing = await env.DB
     .prepare("SELECT id FROM members WHERE handle = ?")

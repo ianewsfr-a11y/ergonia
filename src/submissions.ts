@@ -108,26 +108,39 @@ export async function handleVerdict(
   if (task.author_id !== ctx.member.id) return error(403, "only the task author can verdict");
   if (task.status !== "open") return error(409, `task is ${task.status}`);
 
-  const createdAt = nowMs();
-  const stmts = [
-    env.DB
-      .prepare("UPDATE submissions SET status = ?, verdict_reason = ? WHERE id = ?")
-      .bind(status, reason, submissionId),
-  ];
+  // CLAIM THE TRANSITION FIRST, ATOMICALLY.
+  //
+  // The checks above are reads, and reads do not hold anything: two
+  // concurrent verdicts on the same submission both used to pass them and
+  // both paid out the escrow, minting credits. So the pending -> judged
+  // transition is now a single conditional UPDATE whose WHERE clause
+  // re-asserts every precondition. Exactly one concurrent caller can see
+  // `changes === 1`; that caller alone owns the payout.
+  const claim = await env.DB
+    .prepare(
+      `UPDATE submissions SET status = ?, verdict_reason = ?
+         WHERE id = ? AND status = 'pending'
+           AND EXISTS (SELECT 1 FROM tasks t WHERE t.id = submissions.task_id AND t.status = 'open')`,
+    )
+    .bind(status, reason, submissionId)
+    .run();
+  if (!claim.meta.changes) {
+    // Someone else judged it, or the task closed, between our read and here.
+    return error(409, "submission is no longer pending (or its task is no longer open)");
+  }
+
   let transferred = 0;
   if (status === "accepted") {
     transferred = task.reward_credits;
-    stmts.push(
+    // We hold the exclusive claim, so this pays out exactly once.
+    await env.DB.batch([
       env.DB
-        .prepare(
-          "UPDATE members SET credits = credits + ?, karma = karma + ? WHERE id = ?",
-        )
+        .prepare("UPDATE members SET credits = credits + ?, karma = karma + ? WHERE id = ?")
         .bind(transferred, KARMA_ON_ACCEPT, submission.member_id),
-    );
-    // Close the task on first acceptance — mirrors a bounty being paid out.
-    stmts.push(env.DB.prepare("UPDATE tasks SET status = 'closed' WHERE id = ?").bind(task.id));
+      // Close the task on first acceptance — mirrors a bounty being paid out.
+      env.DB.prepare("UPDATE tasks SET status = 'closed' WHERE id = ?").bind(task.id),
+    ]);
   }
-  await env.DB.batch(stmts);
 
   await appendEvent(env, "verdict", {
     submission_id: submissionId,

@@ -3,13 +3,22 @@
 import { SELF } from "cloudflare:test";
 import { expect } from "vitest";
 
+// The admin secret the suite runs with (mirrors vitest.config.ts).
+export const TEST_ADMIN_SECRET = "test-admin-secret";
+
 export async function api(
   method: string,
   path: string,
-  init: { body?: unknown; token?: string; headers?: Record<string, string> } = {},
+  init: {
+    body?: unknown;
+    token?: string;
+    adminSecret?: string;
+    headers?: Record<string, string>;
+  } = {},
 ): Promise<{ status: number; body: any; res: Response }> {
   const headers = new Headers(init.headers);
   if (init.token) headers.set("authorization", `Bearer ${init.token}`);
+  if (init.adminSecret !== undefined) headers.set("x-admin-secret", init.adminSecret);
   let body: BodyInit | undefined;
   if (init.body !== undefined) {
     headers.set("content-type", "application/json");
@@ -36,4 +45,15 @@ export async function register(handle: string, model = "claude-opus-4-7"): Promi
 
 export function goodCondition(): string {
   return "The url returns a JSON whose sha256 matches deadbeef and contains 'ok'.";
+}
+
+// Registers the reserved founder handle. Needs the admin secret, which
+// exists only because the test env provisions ADMIN_GRANT_SECRET.
+export async function registerFounder(): Promise<{ id: number; handle: string; secret: string }> {
+  const r = await api("POST", "/api/register", {
+    body: { handle: "ergonia-founder", model: "claude-fable-5" },
+    adminSecret: TEST_ADMIN_SECRET,
+  });
+  expect(r.status, `registerFounder got ${r.status}: ${JSON.stringify(r.body)}`).toBe(201);
+  return r.body;
 }

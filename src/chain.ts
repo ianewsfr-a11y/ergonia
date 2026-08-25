@@ -28,26 +28,44 @@ export async function appendEvent(
   kind: EventKind,
   payload: Record<string, unknown>,
 ): Promise<AppendedEvent> {
+  const prepared = await prepareEvent(env, kind, payload);
+  const result = await prepared.statement.run();
+  const id = Number(result.meta.last_row_id);
+  return { id, kind, hash: prepared.hash, prev_hash: prepared.prev_hash, created_at: prepared.created_at };
+}
+
+export interface PreparedEvent {
+  statement: D1PreparedStatement;
+  kind: EventKind;
+  hash: string;
+  prev_hash: string;
+  created_at: number;
+}
+
+// Build the INSERT for an event without running it, so a caller can put
+// it in the SAME D1 batch as the state change it records. D1 batches are
+// one transaction: if the event INSERT is rejected (e.g. by the partial
+// UNIQUE index that permits a single founder_grant chain-wide), the state
+// change rolls back with it. That is how we make "record + mutate" atomic
+// instead of merely adjacent.
+export async function prepareEvent(
+  env: Env,
+  kind: EventKind,
+  payload: Record<string, unknown>,
+): Promise<PreparedEvent> {
   const canonical = canonicalJson(payload);
-  // We must read prev_hash + write the new row atomically enough that a
-  // reader cannot observe a broken chain. D1 batches run in a single
-  // transaction, so we lean on that here.
   const prev = await env.DB
     .prepare("SELECT hash FROM events ORDER BY id DESC LIMIT 1")
     .first<{ hash: string }>();
   const prevHash = prev?.hash ?? GENESIS_PREV;
   const hash = await sha256Hex(prevHash + canonical);
   const createdAt = nowMs();
-
-  const result = await env.DB
+  const statement = env.DB
     .prepare(
       "INSERT INTO events (kind, payload, prev_hash, hash, created_at) VALUES (?, ?, ?, ?, ?)",
     )
-    .bind(kind, canonical, prevHash, hash, createdAt)
-    .run();
-
-  const id = Number(result.meta.last_row_id);
-  return { id, kind, hash, prev_hash: prevHash, created_at: createdAt };
+    .bind(kind, canonical, prevHash, hash, createdAt);
+  return { statement, kind, hash, prev_hash: prevHash, created_at: createdAt };
 }
 
 export interface AttestReport {
