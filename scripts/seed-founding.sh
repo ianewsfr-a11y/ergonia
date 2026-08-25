@@ -27,7 +27,7 @@ set -euo pipefail
 BASE="${ERGONIA_URL:-http://127.0.0.1:8787}"
 GRANT="${FOUNDER_GRANT_AMOUNT:-1200}"
 DAYS="${ARENA_EXPIRY_DAYS:-30}"
-DATA_BASE="${ARENA_DATA_BASE_URL:-https://raw.githubusercontent.com/ianewsfr-a11y/ergonia/main/arena-data}"
+DATA_BASE="${ARENA_DATA_BASE_URL:-https://ergonia.works/arena-data}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 TASKS_JSON="${ROOT}/seed/founding-tasks.json"
@@ -108,7 +108,7 @@ export SEED_FILE="$TASKS_JSON"
 export SEED_DAYS="$DAYS"
 export SEED_DATA_BASE="$DATA_BASE"
 
-COUNT=$(node -e 'const fs=require("fs");const j=JSON.parse(fs.readFileSync(process.env.SEED_FILE,"utf8"));process.stdout.write(String(j.tasks.length));')
+COUNT=$(SEED_FILE_ARG="$TASKS_JSON" node -e 'const fs=require("fs");process.stdout.write(String(JSON.parse(fs.readFileSync(process.env.SEED_FILE_ARG,"utf8")).tasks.length));')
 echo "  planned = $COUNT tasks"
 
 PUBLISHED=0
@@ -118,18 +118,8 @@ ARENA_SEEN=0
 
 for i in $(seq 0 $((COUNT - 1))); do
   export SEED_IDX="$i"
-  # Full task payload (JSON) with arena expiry injected if guild=arena.
-  TASK=$(node -e '
-    const fs = require("fs");
-    const j = JSON.parse(fs.readFileSync(process.env.SEED_FILE, "utf8"));
-    const t = j.tasks[Number(process.env.SEED_IDX)];
-    const out = { ...t };
-    if (t.guild === "arena") {
-      const days = Number(process.env.SEED_DAYS);
-      out.expiry = Math.floor(Date.now() / 1000) + days * 86400;
-    }
-    process.stdout.write(JSON.stringify(out));
-  ')
+  # Full task payload (JSON), arena expiry injected by the helper.
+  TASK=$(node "$HERE/lib/seed-task-payload.mjs")
   TITLE=$(jget "$TASK" title)
   REWARD=$(jget "$TASK" reward_credits)
   GUILD=$(jget "$TASK" guild)
@@ -147,12 +137,8 @@ for i in $(seq 0 $((COUNT - 1))); do
     esac
     # find the existing task id so we can still post the comment
     if [ "$GUILD" = "arena" ]; then
-      TID=$(curl -sS "$BASE/api/tasks?guild=arena&limit=50" \
-        | node -e '
-          const T = process.argv[1];
-          let raw=""; process.stdin.on("data",c=>raw+=c);
-          process.stdin.on("end",()=>{ const o=JSON.parse(raw); const t=(o.tasks||[]).find(x=>x.title===T); process.stdout.write(t?String(t.id):""); });
-        ' "$TITLE")
+      RESP_ALL=$(curl -sS "$BASE/api/tasks?guild=arena&limit=50")
+      TID=$(NEEDLE_TITLE="$TITLE" RESP_JSON="$RESP_ALL" node -e 'const o=JSON.parse(process.env.RESP_JSON);const t=(o.tasks||[]).find(x=>x.title===process.env.NEEDLE_TITLE);process.stdout.write(t?String(t.id):"");')
     fi
   else
     TID=$(jget "$RESP" task.id)
@@ -206,12 +192,8 @@ Submit a public raw URL to a single SELECT whose output byte-matches expected."
           ;;
       esac
 
-      # POST /api/comments with a properly JSON-encoded body.
-      CBODY_JSON=$(BODY_TEXT="$BODY" TID_STR="$TID" node -e '
-        const body = process.env.BODY_TEXT;
-        const task_id = Number(process.env.TID_STR);
-        process.stdout.write(JSON.stringify({ task_id, body }));
-      ')
+      # POST /api/comments with a properly JSON-encoded body (single-line node -e).
+      CBODY_JSON=$(BODY_TEXT="$BODY" TID_STR="$TID" node -e 'process.stdout.write(JSON.stringify({task_id:Number(process.env.TID_STR),body:process.env.BODY_TEXT}));')
       CRESP=$(curl -sS -X POST "$BASE/api/comments" \
         -H "authorization: Bearer $SECRET" \
         -H 'content-type: application/json' \

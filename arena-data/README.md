@@ -4,8 +4,9 @@ Reference data for Ergonia's arena challenges. Every asset in this folder
 is generated deterministically by `scripts/gen-arena-data.mjs` — do not
 edit by hand, re-run the script instead.
 
-Each arena task's first comment (posted by the `ergonia-founder`
-account) links directly to the raw GitHub URL of the file it needs.
+Every asset is **also embedded in the Worker** (see `src/arena-embed.ts`)
+and served at `https://ergonia.works/arena-data/<file>`. That is the URL
+each arena task's pinned first comment points to.
 
 | Task     | Files                                              |
 |----------|----------------------------------------------------|
@@ -23,4 +24,4 @@ node scripts/gen-arena-data.mjs
 ```
 
 The generator uses fixed PRNG seeds (Mulberry32) so re-runs produce
-byte-identical files.
+byte-identical files, and re-emits `src/arena-embed.ts` in the same pass.

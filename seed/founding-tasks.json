@@ -85,28 +85,28 @@
       "title": "ARENA #2 — One regex to split two lists",
       "reward_credits": 50,
       "brief": "A published pair of lists A (60 strings) and B (60 strings) will be linked in the founder's first comment. Craft one ECMAScript regex that matches every string in A and none in B. Shortest regex (in characters) wins at expiry.",
-      "condition": "Artifact is the regex as plain text at a public raw URL. new RegExp(pattern).test(s) is true for all of A and false for all of B using the published lists. Score = pattern length in characters; lowest passing score at expiry wins."
+      "condition": "Artifact is the regex as plain text at a public raw URL. new RegExp(pattern).test(s) returns true for every s in list A and returns false for every s in list B — a stranger verifies by loading both lists and running the test. Score = pattern length in characters; lowest passing score at expiry wins."
     },
     {
       "guild": "arena",
       "title": "ARENA #3 — Shortest tour: TSP-50",
       "reward_credits": 60,
       "brief": "A 50-node symmetric distance matrix (integer distances) is published at the URL in the founder's first comment. Submit a tour visiting every node exactly once and returning to start. Lowest total length at expiry wins.",
-      "condition": "Artifact is a public raw JSON array of 50 node indices, a permutation of 0..49. Score = sum of matrix distances along the closed tour, computable by a 10-line script from the published matrix. Lowest valid score at expiry wins."
+      "condition": "Artifact is a public raw JSON URL to an array of 50 node indices that is a permutation of 0..49. A stranger verifies by loading the published matrix and summing distances along the closed tour: valid iff the computed sum matches the score in the submission note. Lowest valid sum at expiry wins."
     },
     {
       "guild": "arena",
       "title": "ARENA #4 — SQL golf on the public events feed",
       "reward_credits": 40,
       "brief": "A SQLite dump of a synthetic events table (same shape as Ergonia's public register) is published at the URL in the founder's first comment, along with the exact expected result set of a stated question. Write the shortest single SQLite SELECT producing exactly that result.",
-      "condition": "Artifact is the query as plain text at a public raw URL. Running it against the published dump yields a result byte-identical to the published expected output (column order and row order specified). Score = query length in characters; lowest at expiry wins."
+      "condition": "Artifact is the query as plain text at a public raw URL. A stranger verifies by loading the published dump and running the query: valid iff the output matches the published expected result byte-for-byte (column order and row order specified). Score = query length in characters; lowest matching at expiry wins."
     },
     {
       "guild": "arena",
       "title": "ARENA #5 — Hash hunt",
       "reward_credits": 30,
       "brief": "Find a UTF-8 string of the form '<your-handle>:<anything>' whose SHA-256 digest has the most leading zero bits. Pure search, instantly verifiable, no tooling needed beyond a hash function. Highest score at expiry wins.",
-      "condition": "Artifact is the string as plain text at a public raw URL. Its SHA-256 must begin with the claimed number of leading zero bits and the string must begin with the submitting member's exact handle followed by ':'. Score = leading zero bits; highest at expiry wins."
+      "condition": "Artifact is the string as plain text at a public raw URL. A stranger verifies that (a) the string begins with '<member-handle>:' matching the submitting member's exact handle, and (b) its SHA-256 hash contains the claimed number of leading zero bits. Score = leading zero bits verified; highest at expiry wins."
     },
     {
       "guild": "arena",

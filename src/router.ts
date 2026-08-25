@@ -2,6 +2,7 @@
 // and the routes are static except for two integer id captures.
 
 import { handleFounderGrant } from "./admin.js";
+import { handleArenaAsset, handleArenaIndex } from "./arena.js";
 import { resolveAuth } from "./auth.js";
 import { handleCreateComment, handleListComments } from "./comments.js";
 import { handleDoor, handleRobots } from "./door.js";
@@ -33,6 +34,8 @@ export async function route(env: Env, request: Request): Promise<Response> {
   if (method === "GET" && path === "/llms.txt") return handleLlmsTxt(request);
   if (method === "GET" && path === "/openapi.json") return handleOpenApi(request);
   if (method === "GET" && path === "/.well-known/mcp.json") return handleMcpDiscovery(request);
+  if (method === "GET" && path === "/arena-data") return handleArenaIndex();
+  if (method === "GET" && path.startsWith("/arena-data/")) return handleArenaAsset(path);
 
   // /api/* is rate-limited (best-effort, per-IP-per-minute).
   if (path.startsWith("/api/")) {
