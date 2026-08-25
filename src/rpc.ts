@@ -1,28 +1,20 @@
-// Minimal MCP-over-HTTP server for Ergonia.
+// Legacy JSON envelope kept for backward compatibility at /rpc.
 //
-// We implement a simple JSON-RPC-ish envelope:
-//
-//   { "tool": "<name>", "input": { ... } }
-//
-// returning:
-//
-//   { "ok": true, "tool": "...", "result": { ... } }
-//   { "ok": false, "tool": "...", "error": "..." }
-//
-// Tools re-use the same handlers as the JSON API, so there is exactly
-// one implementation per capability.
+// Same shape as the pre-1.5 /mcp: { "tool": "<name>", "input": { ... } }
+// replies with { ok, tool, result } or { ok:false, error }. The proper
+// MCP JSON-RPC 2.0 endpoint now lives at /mcp — see src/mcp.ts.
 
 import { resolveAuth } from "./auth.js";
 import { attestChain } from "./chain.js";
 import { handleListGuilds } from "./guilds.js";
 import { handleCreateSubmission, handleVerdict } from "./submissions.js";
-import { handleCloseTask, handleCreateTask, handleGetTask, handleListTasks, taskById } from "./tasks.js";
+import { handleCloseTask, handleCreateTask, handleGetTask, handleListTasks } from "./tasks.js";
 import { handleMe, handleMemberProfile, handleRegister } from "./society.js";
 import { handlePulse } from "./pulse.js";
 import type { Env } from "./types.js";
-import { error, json, nowMs } from "./util.js";
+import { json, nowMs } from "./util.js";
 
-interface McpEnvelope {
+interface RpcEnvelope {
   tool?: unknown;
   input?: unknown;
 }
@@ -37,7 +29,7 @@ const READ_TOOLS = new Set([
 ]);
 
 const WRITE_TOOLS = new Set([
-  "register", // no auth: creates the secret
+  "register",
   "me",
   "create_task",
   "close_task",
@@ -45,11 +37,11 @@ const WRITE_TOOLS = new Set([
   "give_verdict",
 ]);
 
-async function decode(request: Request): Promise<McpEnvelope | null> {
+async function decode(request: Request): Promise<RpcEnvelope | null> {
   const ct = request.headers.get("content-type") ?? "";
   if (!ct.toLowerCase().includes("application/json")) return null;
   try {
-    return (await request.json()) as McpEnvelope;
+    return (await request.json()) as RpcEnvelope;
   } catch {
     return null;
   }
@@ -62,30 +54,28 @@ function rawJson(body: unknown, status = 200): Response {
   });
 }
 
-function mcpOk(tool: string, result: unknown): Response {
+function rpcOk(tool: string, result: unknown): Response {
   return rawJson({ ok: true, tool, result, now: nowMs() });
 }
-function mcpErr(tool: string, message: string, status = 400): Response {
+function rpcErr(tool: string, message: string, status = 400): Response {
   return rawJson({ ok: false, tool, error: message, now: nowMs() }, status);
 }
 
-// Read-only endpoint. Any write tool is refused up-front.
-export async function handleMcpRead(env: Env, request: Request): Promise<Response> {
+export async function handleRpcRead(env: Env, request: Request): Promise<Response> {
   const env_ = await decode(request);
-  if (!env_ || typeof env_.tool !== "string") return mcpErr("?", "expected {tool,input}", 400);
+  if (!env_ || typeof env_.tool !== "string") return rpcErr("?", "expected {tool,input}", 400);
   const tool = env_.tool;
   if (!READ_TOOLS.has(tool)) {
-    return mcpErr(tool, `tool '${tool}' not available on /mcp/read (read-only)`, 403);
+    return rpcErr(tool, `tool '${tool}' not available on /rpc/read (read-only)`, 403);
   }
   return runTool(env, request, tool, (env_.input as Record<string, unknown>) ?? {});
 }
 
-// Full endpoint. Writes require Bearer auth.
-export async function handleMcp(env: Env, request: Request): Promise<Response> {
+export async function handleRpc(env: Env, request: Request): Promise<Response> {
   const env_ = await decode(request);
-  if (!env_ || typeof env_.tool !== "string") return mcpErr("?", "expected {tool,input}", 400);
+  if (!env_ || typeof env_.tool !== "string") return rpcErr("?", "expected {tool,input}", 400);
   const tool = env_.tool;
-  if (!READ_TOOLS.has(tool) && !WRITE_TOOLS.has(tool)) return mcpErr(tool, `unknown tool '${tool}'`, 404);
+  if (!READ_TOOLS.has(tool) && !WRITE_TOOLS.has(tool)) return rpcErr(tool, `unknown tool '${tool}'`, 404);
   return runTool(env, request, tool, (env_.input as Record<string, unknown>) ?? {});
 }
 
@@ -98,7 +88,6 @@ async function runTool(
   const url = new URL(request.url);
   try {
     switch (tool) {
-      // --- read tools ---
       case "list_guilds":
         return proxy(tool, await handleListGuilds(env));
       case "list_tasks": {
@@ -109,7 +98,7 @@ async function runTool(
       }
       case "get_task": {
         const id = Number(input.id ?? input.task_id);
-        if (!Number.isInteger(id) || id <= 0) return mcpErr(tool, "id must be a positive integer");
+        if (!Number.isInteger(id) || id <= 0) return rpcErr(tool, "id must be a positive integer");
         return proxy(tool, await handleGetTask(env, id));
       }
       case "get_member": {
@@ -119,11 +108,8 @@ async function runTool(
       case "pulse":
         return proxy(tool, await handlePulse(env));
       case "attest":
-        return proxy(tool, jsonOfReport(await attestChain(env)));
-
-      // --- write tools ---
+        return proxy(tool, json(await attestChain(env)));
       case "register": {
-        // Forge a synthetic request so we reuse validation as-is.
         const req = new Request(url.origin + "/api/register", {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -133,56 +119,51 @@ async function runTool(
       }
       case "me": {
         const auth = await resolveAuth(env, request);
-        if (!auth) return mcpErr(tool, "unauthorized: send Authorization: Bearer erg_sk_...", 401);
+        if (!auth) return rpcErr(tool, "unauthorized: send Authorization: Bearer erg_sk_...", 401);
         return proxy(tool, await handleMe(env, auth));
       }
       case "create_task": {
         const auth = await resolveAuth(env, request);
-        if (!auth) return mcpErr(tool, "unauthorized", 401);
+        if (!auth) return rpcErr(tool, "unauthorized", 401);
         const req = mkPostReq(url.origin + "/api/tasks", request, input);
         return proxy(tool, await handleCreateTask(env, auth, req));
       }
       case "close_task": {
         const auth = await resolveAuth(env, request);
-        if (!auth) return mcpErr(tool, "unauthorized", 401);
+        if (!auth) return rpcErr(tool, "unauthorized", 401);
         const id = Number(input.id ?? input.task_id);
-        if (!Number.isInteger(id) || id <= 0) return mcpErr(tool, "id must be a positive integer");
+        if (!Number.isInteger(id) || id <= 0) return rpcErr(tool, "id must be a positive integer");
         return proxy(tool, await handleCloseTask(env, auth, id));
       }
       case "submit_work": {
         const auth = await resolveAuth(env, request);
-        if (!auth) return mcpErr(tool, "unauthorized", 401);
+        if (!auth) return rpcErr(tool, "unauthorized", 401);
         const req = mkPostReq(url.origin + "/api/submissions", request, input);
         return proxy(tool, await handleCreateSubmission(env, auth, req));
       }
       case "give_verdict": {
         const auth = await resolveAuth(env, request);
-        if (!auth) return mcpErr(tool, "unauthorized", 401);
+        if (!auth) return rpcErr(tool, "unauthorized", 401);
         const id = Number(input.id ?? input.submission_id);
-        if (!Number.isInteger(id) || id <= 0) return mcpErr(tool, "id must be a positive integer");
+        if (!Number.isInteger(id) || id <= 0) return rpcErr(tool, "id must be a positive integer");
         const req = mkPostReq(url.origin + "/api/submissions/" + id + "/verdict", request, input);
         return proxy(tool, await handleVerdict(env, auth, id, req));
       }
     }
-    return mcpErr(tool, "not implemented", 500);
+    return rpcErr(tool, "not implemented", 500);
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    return mcpErr(tool, msg, 500);
+    return rpcErr(tool, msg, 500);
   }
 
-  // Reads a Response produced by our JSON handlers and re-wraps as {ok,result}.
   async function proxy(t: string, res: Response): Promise<Response> {
     const body = await res.json().catch(() => ({}));
     if (res.status >= 400) {
       const msg = (body as { error?: string }).error ?? `http ${res.status}`;
-      return mcpErr(t, msg, res.status);
+      return rpcErr(t, msg, res.status);
     }
-    return mcpOk(t, body);
+    return rpcOk(t, body);
   }
-}
-
-function jsonOfReport(report: unknown): Response {
-  return json(report);
 }
 
 function mkPostReq(url: string, original: Request, input: Record<string, unknown>): Request {

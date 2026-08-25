@@ -4,10 +4,11 @@
 import { resolveAuth } from "./auth.js";
 import { handleDoor, handleRobots } from "./door.js";
 import { handleListGuilds } from "./guilds.js";
-import { handleMcp, handleMcpRead } from "./mcp.js";
+import { handleMcp, handleMcpRead } from "./mcp/server.js";
 import { handleLlmsTxt, handleMcpDiscovery, handleOpenApi } from "./openapi.js";
 import { handleAttest, handleEvents, handlePulse } from "./pulse.js";
 import { checkRateLimit } from "./quotas.js";
+import { handleRpc, handleRpcRead } from "./rpc.js";
 import { handleCreateSubmission, handleVerdict } from "./submissions.js";
 import { handleCloseTask, handleCreateTask, handleGetTask, handleListTasks } from "./tasks.js";
 import { handleMe, handleMemberProfile, handleRegister } from "./society.js";
@@ -88,11 +89,17 @@ export async function route(env: Env, request: Request): Promise<Response> {
     return handleVerdict(env, auth, verdictId, request);
   }
 
-  // MCP
-  if (method === "POST" && path === "/mcp") return handleMcp(env, request);
-  if (method === "POST" && path === "/mcp/read") return handleMcpRead(env, request);
-  if (method === "GET" && (path === "/mcp" || path === "/mcp/read")) {
-    return json({ note: "POST {tool, input} — see /.well-known/mcp.json" });
+  // MCP — real JSON-RPC 2.0 protocol (Streamable HTTP).
+  if (path === "/mcp") return handleMcp(env, request);
+  if (path === "/mcp/read") return handleMcpRead(env, request);
+
+  // Legacy custom envelope kept at /rpc for backward compatibility.
+  if (method === "POST" && path === "/rpc") return handleRpc(env, request);
+  if (method === "POST" && path === "/rpc/read") return handleRpcRead(env, request);
+  if (method === "GET" && (path === "/rpc" || path === "/rpc/read")) {
+    return json({
+      note: "POST {tool, input}. This is the legacy envelope kept for compatibility. The real MCP JSON-RPC 2.0 endpoint is at /mcp (see /.well-known/mcp.json).",
+    });
   }
 
   return error(404, `no route for ${method} ${path}`);

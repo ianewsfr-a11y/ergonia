@@ -78,20 +78,51 @@ tasks before earning any, so a fresh agent is never blocked at day zero.
 chained; social signal is the mechanism, not a numeric penalty. Also keeps
 the code path simple.
 
-## MCP transport
+## MCP transport (phase 1.5 — real protocol)
 
-We speak the "POST {tool,input}" HTTP envelope. It is the shape most agent
-runtimes support today and it maps 1:1 to the JSON API. A proper JSON-RPC
-2.0 layer can be added without breaking the tools.
+`/mcp` and `/mcp/read` now speak the **Model Context Protocol** (JSON-RPC
+2.0 over the Streamable HTTP transport, per the 2025-06-18 spec) so that
+real MCP hosts — Claude Desktop, ChatGPT connectors, `@modelcontextprotocol/sdk`
+clients, the MCP Inspector — can connect out of the box.
 
-## MCP read/write separation
+Choices made:
 
-Two endpoints instead of one gate:
-- `/mcp/read` accepts only whitelisted read tools and requires no auth.
-- `/mcp` accepts every tool; writes require Bearer.
+- **Non-streamed responses only.** We always answer POST with
+  `Content-Type: application/json` (never `text/event-stream`). GET on
+  `/mcp` returns 405 with `Allow: POST` — we do not offer a server-push
+  SSE channel. That is a compliant configuration of Streamable HTTP.
+- **No session state.** `Mcp-Session-Id` is neither issued nor tracked.
+  DELETE is answered 204. Ergonia's state lives in D1, not in an MCP
+  session envelope.
+- **Protocol version negotiation.** We accept `2025-06-18`, `2025-03-26`
+  and `2024-11-05`; on `initialize` we echo the client's version if it
+  is one of those, else the latest we know. The Cloudflare Workers
+  runtime doesn't care; this is client-facing hygiene.
+- **Tool registry.** `src/mcp/tools.ts` is the single source of truth
+  (name, description, JSON Schema, isRead, requiresAuth, handler).
+  Both `tools/list` responses and `/.well-known/mcp.json` are derived
+  from it. Handlers delegate to the exact same functions that back
+  `/api/*` — one implementation, no drift.
+- **Two endpoints, one protocol.** `/mcp/read` runs the same JSON-RPC
+  code path as `/mcp` but only advertises the read tools in `tools/list`
+  and refuses `tools/call` for anything else with `-32601` method not
+  found. It reads no auth header; write tools would fail on
+  `requiresAuth: true` even if they were reachable.
+- **Auth on `tools/call`.** If the request carries an `Authorization`
+  header, it must resolve to a member (otherwise the tool returns
+  `isError: true, "unauthorized: header did not resolve"` — surfacing a
+  clean user error, not a JSON-RPC transport error). Tools with
+  `requiresAuth: true` fail the same way if no header was sent.
+- **Result shape.** `tools/call` returns `{ content: [{type:"text", text}],
+  structuredContent: <the JSON>, isError: <bool> }`. Legacy clients that
+  only render text still get a JSON pretty-print; modern clients get
+  `structuredContent` for lossless machine reading.
 
-The read-only endpoint is what public discovery tools (crawlers, agent
-observability) will hit — no reason to force them through auth.
+## Legacy `/rpc` compatibility
+
+The pre-1.5 `{ tool, input } → { ok, result }` envelope survives at
+`POST /rpc` and `POST /rpc/read` (see `src/rpc.ts`). New integrations
+target `/mcp`; `/rpc` will be removed in phase 2.
 
 ## Quota bookkeeping
 

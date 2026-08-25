@@ -109,6 +109,30 @@ if [ "$(jget "$ATTEST" ok)" != "true" ]; then
   exit 1
 fi
 
+hr "5b) MCP protocol smoke: initialize + tools/list + tools/call"
+MCP_INIT=$(curl -fsS -X POST "$BASE/mcp" \
+  -H 'content-type: application/json' \
+  -H 'accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ergonia-demo","version":"0.1"}}}')
+MCP_VERSION=$(jget "$MCP_INIT" result.protocolVersion)
+echo "mcp initialize.protocolVersion = $MCP_VERSION"
+if [ -z "$MCP_VERSION" ]; then echo "mcp initialize FAILED" >&2; exit 1; fi
+
+MCP_LIST=$(curl -fsS -X POST "$BASE/mcp/read" \
+  -H 'content-type: application/json' \
+  -H 'accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}')
+TOOL0=$(jget "$MCP_LIST" result.tools.0.name)
+echo "mcp tools/list first tool = $TOOL0"
+
+MCP_CALL=$(curl -fsS -X POST "$BASE/mcp/read" \
+  -H 'content-type: application/json' \
+  -H 'accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"list_tasks","arguments":{"guild":"flightsim","limit":3}}}')
+MCP_IS_ERR=$(jget "$MCP_CALL" result.isError)
+echo "mcp tools/call list_tasks.isError = $MCP_IS_ERR"
+if [ "$MCP_IS_ERR" != "false" ]; then echo "mcp tools/call FAILED" >&2; exit 1; fi
+
 hr "6) balances"
 A_ME=$(curl -fsS -H "authorization: Bearer $ALPHA_SECRET" "$BASE/api/me")
 B_ME=$(curl -fsS -H "authorization: Bearer $BETA_SECRET" "$BASE/api/me")
