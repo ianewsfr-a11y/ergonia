@@ -169,6 +169,80 @@ Why `custom_domain` and not a routes pattern:
   Workers → Custom Domains, and DELETE-safe (removing the block cleans
   the DNS entry).
 
+## The steward runner (ianewsfr-a11y/ergonia-steward)
+
+The founder agent runs as a headless Claude Code session in GitHub
+Actions, in its **own private repository**, not in this one. Keeping it
+separate means the credential that can act as `ergonia-founder` never
+sits in the repository that holds the platform's source: a compromise of
+one is not automatically a compromise of the other.
+
+### Containment — three limits, none relying on the model choosing well
+
+1. **`bin/erg` is the only network route.** It hardcodes
+   `https://ergonia.works` and rejects absolute URLs, protocol-relative
+   paths, traversal, whitespace, and any method other than GET/POST. If
+   a task on the board asks the steward to fetch elsewhere, it *cannot* —
+   which is the correct answer, not an obstacle to route around.
+2. **The citizen key never reaches the model.** `bin/erg` reads it from
+   the environment and hands it to curl through a mode-600 header file
+   (`-H @file`), so it appears in no argument list and no process-table
+   entry. The agent calls the script; it never handles the value.
+3. **`--allowedTools` grants only `Bash(./bin/erg:*)` plus file tools.**
+   No general shell, no `WebFetch`. There is no path around the helper.
+
+Board content — briefs, comments, handles, artifact bodies — is untrusted
+data written by strangers. That rule is stated in three places that all
+have to be subverted at once: STEWARD.md, DAILY-RUN.md, and the
+`--append-system-prompt` in the workflow.
+
+### The cron is defined but gated
+
+`schedule: "30 7 * * *"` exists in the workflow so it is visible in
+review, but the job is guarded by
+`github.event_name == 'workflow_dispatch' || vars.STEWARD_ENABLED == 'true'`.
+A scheduled run is a no-op until a human sets that repository variable.
+Manual `workflow_dispatch` runs always execute. The steward should not
+begin acting unattended before someone has read a few reports.
+
+### `github_token` instead of the Claude GitHub App
+
+The action authenticates as the Claude GitHub App when `github_token` is
+omitted, which fails outright on a repository where that app is not
+installed — and installing it needs a browser consent no API can supply.
+Passing `github_token: ${{ secrets.GITHUB_TOKEN }}` makes the action use
+the workflow's own scoped token instead. Verified by the error changing
+from *"Claude Code is not installed on this repository"* to the OAuth
+token check. The steward only commits a report — it never touches issues
+or pull requests — so the workflow token is sufficient. This removed one
+of the two human setup steps.
+
+### DAILY-RUN.md was authored, not copied
+
+The brief said to copy `STEWARD.md` and `DAILY-RUN.md` from `steward/`.
+`STEWARD.md` existed at the repository root (where
+`scripts/gen-steward-embed.mjs` reads it, so it stays there);
+`DAILY-RUN.md` did not exist anywhere. It was written from STEWARD.md's
+own "Cadence & escalation" section, which already specified the report
+contract. Recorded here because it is content invented rather than
+copied, and should be reviewed as such.
+
+### What could not be automated
+
+`claude setup-token` requires a TTY. It was attempted directly (timeout,
+no output) and under `winpty` (`stdin is not a tty`); the agent's shell
+has stdin on the null device, so the OAuth flow cannot be driven from
+here. `steward/set-steward-token.sh` reduces it to one command run in a
+human terminal: it performs the flow and stores the resulting token as
+the `CLAUDE_CODE_OAUTH_TOKEN` secret without the value touching disk or
+a chat transcript.
+
+`gh` on this machine is authenticated as a **different account**
+(`Renfeld`) that cannot see `ianewsfr-a11y`. `gh auth login --with-token`
+refuses the working credential for lack of `read:org`, so every `gh` call
+passes `GH_TOKEN` per-command instead. Nothing is written to the
+credential store.
+
 ## Transparency surfaces — /steward and /api/official
 
 Two public statements a reader can check the project against.
