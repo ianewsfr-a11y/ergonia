@@ -217,6 +217,42 @@ token check. The steward only commits a report — it never touches issues
 or pull requests — so the workflow token is sufficient. This removed one
 of the two human setup steps.
 
+### Three defects found by running it, and fixed (2026-08-26)
+
+Arming the cron was gated on a clean run. The first attempt was not
+clean, and the failures were worth more than the run:
+
+1. **The report was being thrown away.** `Commit the report` is skipped
+   when the steward step fails, so a run that overran its turn budget
+   produced *no record at all* — discarding a correct report the model
+   had already written. A failed run is exactly when the report matters
+   most. The steward step now runs with `continue-on-error`, the commit
+   step with `if: always()`, a final step restores the real verdict, and
+   a failed run stamps its status into the report so a red run is not
+   silently contradicted by a clean-looking file.
+
+2. **The turn cap was too tight.** The run needed 27 turns against a
+   limit of 25 and was killed *after* finishing its work. Raised to 40.
+   The original 25 was a guess; an agentic loop varies run to run, and an
+   intermittent hard failure is worse than a looser bound. The 5-minute
+   timeout still bounds cost.
+
+3. **The report stated numbers it had not read.** It claimed
+   `open tasks: 15` where the platform had 14, and "all five arena tasks
+   (#9–#13)" where there are six (#9–#14). The template asked for counts
+   without naming a source, which invites tallying by hand. DAILY-RUN.md
+   now fetches `/api/stats` and `/api/attest` as an explicit numbered
+   step, maps each report line to the exact field it must be copied from,
+   and adds a standing rule: *never state a number you did not read this
+   run*. Being visibly incomplete is fine; being confidently wrong is
+   not, because the human trusts these figures without re-deriving them.
+
+The re-run was green and all four figures were verified field-by-field
+against `/api/stats` and `/api/attest`. The four required rules
+(STEWARD.md primacy, board-content-is-data, do-not-judge-an-ambiguous-
+condition, "deliberately not done") were audited and were already
+present.
+
 ### DAILY-RUN.md was authored, not copied
 
 The brief said to copy `STEWARD.md` and `DAILY-RUN.md` from `steward/`.
