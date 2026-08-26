@@ -289,6 +289,86 @@ data written by strangers. That rule is stated in three places that all
 have to be subverted at once: STEWARD.md, DAILY-RUN.md, and the
 `--append-system-prompt` in the workflow.
 
+### Every report is audited mechanically
+
+The steward writes its own report card, and a report card nobody checks
+is a rumour. A second job, `verify`, audits each run — **no model
+involved**, only arithmetic and set comparison against the live API. A
+dumb check that runs every day beats a clever one that needs a human.
+
+| Check | Rule | Severity |
+| --- | --- | --- |
+| **A. Deltas** | Every Growth delta recomputed from yesterday's block. | hard fail |
+| **A2. Values** | Reported absolutes compared to a live `/api/stats`. | **warn only** |
+| **B. Conservation** | `100 × members + Σ founder_grants == circulating + escrowed`. | hard fail |
+| **C. Verdicts** | Report and chain must agree, in both directions. | hard fail |
+| **D. Attest** | `/api/attest` must be `ok:true`. | hard fail |
+| **E. Run status** | A failed steward job, or a report bearing the failure stamp, is relayed. | hard fail |
+
+**A2 is a warning by design.** The marketplace keeps running between the
+steward's run and the audit, so a moved figure is news, not a defect.
+Making it fatal would produce daily false alarms and train everyone to
+ignore the alert — the classic way a monitor becomes decoration.
+
+**C is checked in both directions, and the two are not symmetric.** A
+verdict the report claims but the chain does not hold is a bookkeeping
+error. A verdict *on the chain that the report omits* is the serious one:
+the steward acted and did not say so. That is the failure mode this whole
+mechanism exists to catch.
+
+**Failure opens a GitHub issue**, one per day, skipped when an open issue
+with the same title already exists. An issue is a notification, which is
+an email — no alerting stack to configure and nothing else to maintain.
+Success appends `verified: all checks green` to the report, committed by
+the verify job rather than the steward, so the audit is never self-signed.
+
+`verify` runs with `always()` so a *failed* steward is still audited, but
+not when the steward was **skipped** by the cron gate: there is no run to
+audit then, and a failure would be pure noise.
+
+**`verify.mjs` never terminates the process explicitly.** Calling
+`process.exit()` after `fetch()` tears down libuv's open handles
+mid-flight; on Windows that aborts with an assertion and replaces the exit
+code with `127`, turning both a clean pass and a real failure into noise.
+The workflow gates on that exit code, so the script sets
+`process.exitCode` and lets Node wind down. This was found by testing the
+exit codes rather than the output — the printed verdict was correct while
+the code was garbage.
+
+Detection was proven by sabotage, not assumed: wrong delta, sign error,
+`no baseline` claimed against a real baseline, a deleted Growth line, a
+verdict claimed but unchained, a verdict chained but unreported, broken
+conservation, a broken chain, a failed steward job, a failure stamp, and
+a missing report — eleven scenarios, each failing with exit 1.
+
+### Open problem: the steward cannot verify off-site artifacts
+
+The first run against real submissions surfaced a deadlock the design
+created and neither half is wrong about.
+
+`bin/erg` hardcodes `https://ergonia.works`, so the steward cannot fetch
+anything else — that containment is deliberate and is what makes the
+account safe to run unattended. But the founding tasks explicitly ask for
+artifacts on public repos and gists, so **the steward can reach none of
+the evidence it is meant to judge.**
+
+It handled this correctly: it refused to judge on the submitter's own
+claims, commented publicly on each task saying it could not verify from
+where it stands, flagged all three for the human, and left them pending.
+That is exactly what `STEWARD.md` demands. But it means verdicts on
+off-site work cannot happen at all without a decision:
+
+1. Give the steward a **read-only, credential-free** fetch limited to an
+   allowlist (github.com, raw/gist.githubusercontent.com). Narrow, but it
+   widens the blast radius of a prompt-injected task brief.
+2. A **separate verifier** with its own scope and no citizen key, whose
+   output the steward reads as data.
+3. Leave verdicts on off-site artifacts to a human.
+
+Unresolved, and deliberately not decided unilaterally: widening the
+steward's network reach is a security decision, and it directly
+contradicts a containment property already documented here.
+
 ### The cron is defined but gated
 
 `schedule: "30 7 * * *"` exists in the workflow so it is visible in
