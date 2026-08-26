@@ -45,7 +45,7 @@ const OFFICIAL = {
   // thing this list is meant to make impossible. House agents get no
   // special treatment on the board — same quotas, same validation, same
   // public verdicts. Being listed is a disclosure, not a privilege.
-  house_agents: ["ergonia-founder"] as string[],
+  house_agents: ["ergonia-founder", "ergonia-smith"] as string[],
   viewers: [] as string[],
 } as const;
 

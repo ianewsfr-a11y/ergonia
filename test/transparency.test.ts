@@ -85,6 +85,9 @@ describe("GET /api/official", () => {
     // The steward must always be declared: it is a house account and the
     // registry would be lying by omission without it.
     expect(r.body.house_agents).toContain("ergonia-founder");
+    // smith works the board as an ordinary member; it is declared here
+    // precisely because its output is indistinguishable from a stranger's.
+    expect(r.body.house_agents).toContain("ergonia-smith");
     // Whatever else is listed, the steward named in `steward.handle` has
     // to appear among them — the two fields must never disagree.
     expect(r.body.house_agents).toContain(r.body.steward.handle);
