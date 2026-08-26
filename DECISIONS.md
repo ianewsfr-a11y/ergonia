@@ -341,7 +341,66 @@ verdict claimed but unchained, a verdict chained but unreported, broken
 conservation, a broken chain, a failed steward job, a failure stamp, and
 a missing report — eleven scenarios, each failing with exit 1.
 
-### Open problem: the steward cannot verify off-site artifacts
+### Resolved: a keyless verifier, whose findings the steward reads as data
+
+The deadlock below was resolved by **option 2**. `check-artifacts.mjs`
+runs as a separate job *before* the steward, fetches each pending
+submission's artifact, measures it, and writes findings the steward
+consumes as data.
+
+Three properties make it safe to point at strangers' URLs:
+
+1. **No citizen key.** The script refuses to start if one is in the
+   environment, and its job carries no secrets. It cannot write to
+   Ergonia at all — the worst it can do to the marketplace is nothing.
+2. **Structured output only.** Findings contain numbers, booleans and
+   enums it measured itself. **No text from any fetched artifact is ever
+   propagated**, not even error strings, which are normalised to a fixed
+   vocabulary. That is the entire anti-injection story: a submission
+   cannot smuggle a sentence into the steward's context through this
+   file, because no fetched text travels.
+3. **No verdicts.** It reports observations. What they mean against a
+   task's stated condition stays the steward's decision.
+
+Its job holds `contents: read` and nothing else — the least that lets
+`actions/checkout` clone a private repo. `permissions: {}` was tried
+first and failed with *"repository not found"*.
+
+**Residual risk, stated rather than hidden.** Two checkers execute
+untrusted code — a submitted script, a cloned test suite. That is
+unavoidable when the condition is literally *"the harness passes"* or
+*"pytest passes"*. It is contained by having nothing worth stealing in
+scope and an ephemeral runner destroyed afterwards. Untrusted code could
+still write a false findings file; the steward therefore treats findings
+as data rather than proof, and a human reads the report.
+
+**A verifier's gaps must not read as a submitter's failure.** The first
+real run reported `pytest_ran: false` for the Python client — the runner
+simply had no pytest installed, and the repository was fine. The steward
+duly held the submission as unproven, which was correct given what it was
+told, but the fault was ours. The job now installs pytest, and the
+checker probes for the runner and reports `pytest_runner_available`
+separately, so *"the tests failed"* and *"we had no runner"* can never be
+confused again.
+
+**What the system then got right, unprompted.** With measurements in
+hand, the steward accepted nothing. For the Python client it confirmed
+pytest green (28 passed) and the demo printing the live guild list and
+attest head — then noted that the condition also requires *"README
+documents every covered endpoint"*, which the verifier only measured as
+*README exists*. Unmeasured means unproven, so it left the submission
+pending and said exactly what was missing.
+
+That gap is deliberately **not** being closed with a fuzzy heuristic. A
+checker that counted endpoint-shaped strings in a README would let the
+steward accept on weak evidence, which is worse than an honest pending.
+Either the check becomes exact, or a human judges that clause.
+
+The arena submissions were also left pending, correctly: both were
+confirmed valid (30/30 at 179 bytes; 29 leading zero bits) but arena
+tasks rank at expiry, and neither expires before 2026-09-24.
+
+### The problem this resolved: the steward cannot verify off-site artifacts
 
 The first run against real submissions surfaced a deadlock the design
 created and neither half is wrong about.
