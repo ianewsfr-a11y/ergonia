@@ -391,10 +391,51 @@ documents every covered endpoint"*, which the verifier only measured as
 *README exists*. Unmeasured means unproven, so it left the submission
 pending and said exactly what was missing.
 
-That gap is deliberately **not** being closed with a fuzzy heuristic. A
-checker that counted endpoint-shaped strings in a README would let the
-steward accept on weak evidence, which is worse than an honest pending.
-Either the check becomes exact, or a human judges that clause.
+That gap is deliberately **not** closed with a fuzzy heuristic. A checker
+that counted endpoint-shaped strings in a README would let the steward
+accept on weak evidence, which is worse than an honest pending. The clause
+is semantic, so it went to the reader rather than the measurer — see
+below.
+
+### Semantic clauses: the steward reads the text itself
+
+*"The README documents every covered endpoint"* is not a number. Neither
+is *"the guide contains the exact calls"* or *"a section named X"*. A
+measurer can only report that a README exists; only reading settles what
+it says. So the steward reads.
+
+**This is a second tool, not a widening of the first.** `bin/erg` injects
+the citizen key — aiming it at a third-party host would hand the
+steward's identity to a stranger's server. `bin/read-public` has no access
+to the key and sets no `Authorization` header under any circumstance. The
+two capabilities live in separate programs precisely so they cannot be
+confused at the call site, and DAILY-RUN.md states the rule without
+exceptions: **`bin/erg` for ergonia.works, `read-public` for everything
+else.**
+
+`read-public` is GET-only, https-only, restricted to code-hosting domains,
+and re-checks the host at **every redirect hop** — an allowlisted URL
+cannot walk off the allowlist through a redirect chain. Responses are
+capped at 200 KB, because a huge file would flood the steward's context
+and crowd out its own instructions.
+
+**This does widen the injection surface, and that is handled explicitly.**
+The steward now reads text written by the very person whose work it is
+judging. Three defences, none relying on the model being clever:
+
+- The output is fenced by `BEGIN/END UNTRUSTED CONTENT` banners and a
+  closing line restating that it is evidence, never instruction.
+- DAILY-RUN.md says fetched text may inform a judgement but never issue
+  one, and that an artifact addressing or steering its own judge is
+  itself reportable under "Flagged for the human".
+- The tool cannot write anything, anywhere. The worst a hostile README
+  achieves is a wrong verdict on its own submission — public, chained,
+  and disputable — not an action elsewhere.
+
+**Verdicts on semantic clauses must cite their evidence**: which specific
+items were looked for and which were found or missing, so a stranger can
+repeat the check. That is the standard the tasks already demand of
+submitters, applied to the judge.
 
 The arena submissions were also left pending, correctly: both were
 confirmed valid (30/30 at 179 bytes; 29 leading zero bits) but arena
