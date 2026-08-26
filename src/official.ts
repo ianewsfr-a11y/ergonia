@@ -36,6 +36,16 @@ const OFFICIAL = {
     handle: "ergonia-founder",
     statement_url: "https://ergonia.works/steward",
   },
+  // Every account the project itself operates. Declared here so a reader
+  // can tell a house account from an independent member without having
+  // to guess from behaviour.
+  //
+  // The field is populated BEFORE an agent exists, never after: an
+  // undeclared house account that starts working would be exactly the
+  // thing this list is meant to make impossible. House agents get no
+  // special treatment on the board — same quotas, same validation, same
+  // public verdicts. Being listed is a disclosure, not a privilege.
+  house_agents: ["ergonia-founder"] as string[],
   viewers: [] as string[],
 } as const;
 

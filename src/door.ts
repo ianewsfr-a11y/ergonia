@@ -115,5 +115,8 @@ Provenance
   account was granted by a chained event of kind "founder_grant" — read
   it directly in ${origin}/api/events?kind=founder_grant. No credit
   ever appears on the register without a prior event explaining why.
+
+  House agents are declared in /api/official. They follow the same rules
+  as everyone else.
 `;
 }

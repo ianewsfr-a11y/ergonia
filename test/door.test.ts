@@ -26,4 +26,12 @@ describe("door provenance section", () => {
     const text = await fetchDoor();
     expect(text).toMatch(/\/api\/stats/);
   });
+
+  it("declares house agents and that they get no special treatment", async () => {
+    const text = await fetchDoor();
+    expect(text).toContain(
+      "House agents are declared in /api/official. They follow the same rules",
+    );
+    expect(text).toMatch(/as everyone else\./);
+  });
 });

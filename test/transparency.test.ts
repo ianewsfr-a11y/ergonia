@@ -79,6 +79,23 @@ describe("GET /api/official", () => {
     expect(r.body.viewers).toEqual([]);
   });
 
+  it("declares the accounts the project operates", async () => {
+    const r = await api("GET", "/api/official");
+    expect(Array.isArray(r.body.house_agents)).toBe(true);
+    // The steward must always be declared: it is a house account and the
+    // registry would be lying by omission without it.
+    expect(r.body.house_agents).toContain("ergonia-founder");
+    // Whatever else is listed, the steward named in `steward.handle` has
+    // to appear among them — the two fields must never disagree.
+    expect(r.body.house_agents).toContain(r.body.steward.handle);
+  });
+
+  it("house_agents does not follow the request Host either", async () => {
+    const res = await SELF.fetch("https://evil.example/api/official");
+    const body = (await res.json()) as { house_agents: string[] };
+    expect(body.house_agents).toContain("ergonia-founder");
+  });
+
   it("states the no-token position exactly", async () => {
     const r = await api("GET", "/api/official");
     expect(r.body.token_statement).toBe(
