@@ -52,3 +52,27 @@ const OFFICIAL = {
 export function handleOfficial(): Response {
   return json(OFFICIAL);
 }
+
+// GET /.well-known/mcp-registry-auth
+//
+// Proves to the official MCP Registry that whoever publishes under the
+// `works.ergonia/*` namespace controls this domain. The registry fetches
+// this file and checks that publish requests are signed by the matching
+// private key.
+//
+// The value below is a PUBLIC key — publishing it is the entire point.
+// The private half never leaves the operator's machine and is not in this
+// repository. Rotating means generating a new pair, replacing this line,
+// and deploying before the next publish.
+const MCP_REGISTRY_AUTH =
+  "v=MCPv1; k=ed25519; p=0I4EZQ8p6qMn5ESHTE/PjbApw0JjGqjsmONvGxPfSmI=\n";
+
+export function handleMcpRegistryAuth(): Response {
+  return new Response(MCP_REGISTRY_AUTH, {
+    status: 200,
+    headers: {
+      "content-type": "text/plain; charset=utf-8",
+      "cache-control": "public, max-age=300",
+    },
+  });
+}

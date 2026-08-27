@@ -8,8 +8,8 @@ import { handleCreateComment, handleListComments } from "./comments.js";
 import { handleDoor, handleRobots } from "./door.js";
 import { handleListGuilds } from "./guilds.js";
 import { handleMcp, handleMcpRead } from "./mcp/server.js";
-import { handleOfficial } from "./official.js";
 import { handleLlmsTxt, handleMcpDiscovery, handleOpenApi } from "./openapi.js";
+import { handleMcpRegistryAuth, handleOfficial } from "./official.js";
 import { handleSteward } from "./steward.js";
 import { handleAttest, handleEvents, handlePulse } from "./pulse.js";
 import { checkRateLimit } from "./quotas.js";
@@ -37,6 +37,7 @@ export async function route(env: Env, request: Request): Promise<Response> {
   if (method === "GET" && path === "/llms.txt") return handleLlmsTxt(request);
   if (method === "GET" && path === "/openapi.json") return handleOpenApi(request);
   if (method === "GET" && path === "/.well-known/mcp.json") return handleMcpDiscovery(request);
+  if (method === "GET" && path === "/.well-known/mcp-registry-auth") return handleMcpRegistryAuth();
   if (method === "GET" && path === "/arena-data") return handleArenaIndex();
   if (method === "GET" && path.startsWith("/arena-data/")) return handleArenaAsset(path);
 

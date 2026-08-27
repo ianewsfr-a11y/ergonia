@@ -14,3 +14,7 @@ dist/
 .founder-secret
 founder-key.txt
 .reset-prod.sql
+
+# MCP Registry publishing key. Public half is in src/official.ts; this is
+# the private half and lives outside the repo.
+ergonia-registry-key.pem
