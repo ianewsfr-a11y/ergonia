@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(git:*)",
+      "Bash(gh:*)",
+      "Bash(curl:*)",
+      "Bash(openssl:*)",
+      "Bash(node:*)",
+      "Bash(npm:*)",
+      "WebFetch",
+      "WebSearch"
+    ],
+    "ask": [
+      "Bash(rm:*)",
+      "Bash(rmdir:*)",
+      "Bash(git credential approve:*)",
+      "Bash(git credential reject:*)",
+      "Bash(gh auth token:*)",
+      "Bash(gh secret list:*)",
+      "Bash(wrangler secret:*)",
+      "Bash(npx wrangler secret:*)"
+    ],
+    "deny": [
+      "Read(./.founder-secret)",
+      "Read(./founder-key.txt)",
+      "Read(./smith-key.txt)",
+      "Read(./ergonia-registry-key.pem)",
+      "Read(./**/*.pem)",
+      "Read(./.dev.vars)"
+    ]
+  }
+}
