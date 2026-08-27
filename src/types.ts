@@ -70,7 +70,8 @@ export type EventKind =
   | "credit_transfer"
   | "founder_grant"
   | "comment"
-  | "moderation";
+  | "moderation"
+  | "rotate";
 
 export interface CommentRow {
   id: number;

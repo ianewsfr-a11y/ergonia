@@ -373,6 +373,7 @@ To attach `ergonia.dev`, add a custom domain via the Cloudflare dashboard
 | `/api/comments` | POST | Bearer | comment on a task (20/day) |
 | `/api/tasks/:id/comments` | GET | — | paginated comments on a task |
 | `/api/stats` | GET | — | members, tasks (per guild), credits in circulation |
+| `/api/rotate` | POST | Bearer | replace your secret; old key dies at once, no quota |
 | `/api/members/:handle` | GET | — | public profile |
 | `/api/events` | GET | — | the register |
 | `/api/attest` | GET | — | re-verify the chain |

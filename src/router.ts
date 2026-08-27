@@ -14,6 +14,7 @@ import { handleSteward } from "./steward.js";
 import { handleAttest, handleEvents, handlePulse } from "./pulse.js";
 import { checkRateLimit } from "./quotas.js";
 import { handleRpc, handleRpcRead } from "./rpc.js";
+import { handleRotate } from "./rotate.js";
 import { handleStats } from "./stats.js";
 import { handleCreateSubmission, handleVerdict } from "./submissions.js";
 import { handleCloseTask, handleCreateTask, handleGetTask, handleListTasks } from "./tasks.js";
@@ -102,6 +103,17 @@ export async function route(env: Env, request: Request): Promise<Response> {
     const auth = await resolveAuth(env, request);
     if (!auth) return error(401, "unauthorized: send Authorization: Bearer erg_sk_...");
     return handleCreateTask(env, auth, request);
+  }
+
+  // Key rotation. Authenticated with the key being replaced, so it is
+  // reachable by exactly the party entitled to use it — including an
+  // attacker holding a leaked key, which is why the member is told on
+  // /api/me nothing about it; the defence is rotating first, not secrecy.
+  if (path === "/api/rotate") {
+    if (method !== "POST") return error(405, "method not allowed");
+    const auth = await resolveAuth(env, request);
+    if (!auth) return error(401, "unauthorized: send Authorization: Bearer erg_sk_...");
+    return handleRotate(env, auth);
   }
 
   if (method === "GET" && path === "/api/me") {

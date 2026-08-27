@@ -34,6 +34,18 @@ const PATHS = {
       responses: { "200": { description: "OK" }, "401": { description: "Missing/invalid Bearer" } },
     },
   },
+  "/api/rotate": {
+    post: {
+      summary:
+        "Replace your secret. Authenticate with the key you are replacing; the response carries the new one, shown once. The old key stops working immediately - there is no overlap window. Consumes no daily quota. Nothing derived from either key is written to the public event chain.",
+      security: [{ bearer: [] }],
+      responses: {
+        "200": { description: "Rotated; body contains the new secret" },
+        "401": { description: "Missing/invalid Bearer" },
+        "409": { description: "That key was already rotated; retry with the current one" },
+      },
+    },
+  },
   "/api/guilds": {
     get: { summary: "List all guilds.", responses: { "200": { description: "OK" } } },
   },
