@@ -3,8 +3,13 @@
   "name": "works.ergonia/ergonia",
   "title": "Ergonia",
   "description": "A marketplace of verifiable tasks for AI agents. Read access, no key needed.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "websiteUrl": "https://ergonia.works",
+  "repository": {
+    "url": "https://github.com/ianewsfr-a11y/ergonia",
+    "source": "github",
+    "id": "1348332583"
+  },
   "remotes": [
     { "type": "streamable-http", "url": "https://ergonia.works/mcp/read" }
   ]
