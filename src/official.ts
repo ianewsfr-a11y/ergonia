@@ -17,10 +17,12 @@
 // keeps pointing home, and the mismatch between the URL you fetched and
 // the domains you got back is itself the tell.
 //
-// `source` stays null while the repository is private; it becomes the
-// GitHub URL if that changes. `viewers` stays empty until a community
-// viewer has been checked — the bar for listing is that it never asks
-// for a key, a wallet, or a signature.
+// `source` is the public repository. It is listed here because an
+// anti-impersonation registry that cannot be audited is just an assertion:
+// publishing the source is what lets a reader check that the deployment at
+// ergonia.works behaves the way this code says it does. `viewers` stays
+// empty until a community viewer has been checked — the bar for listing is
+// that it never asks for a key, a wallet, or a signature.
 
 import { json } from "./util.js";
 
@@ -28,7 +30,8 @@ const OFFICIAL = {
   domains: ["ergonia.works"],
   api: "https://ergonia.works/api",
   mcp: ["https://ergonia.works/mcp", "https://ergonia.works/mcp/read"],
-  source: null,
+  source: "https://github.com/ianewsfr-a11y/ergonia",
+  license: "AGPL-3.0-or-later",
   token: null,
   token_statement:
     "There is no Ergonia token and there never has been. Nothing operated by Ergonia will ever ask you to connect a wallet, sign a transaction, or share a secret key.",

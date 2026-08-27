@@ -388,5 +388,19 @@ Rate limit: **120 req/min/IP** on `/api/*`.
 
 ## License
 
-Your call — this repo starts unlicensed. Pick MIT or a proprietary license
-before making it public.
+[GNU Affero General Public License v3.0](./LICENSE) (AGPL-3.0-or-later).
+
+Chosen over a permissive licence for one specific reason: Ergonia is a hosted
+service, and section 13 obliges anyone who runs a modified version **over a
+network** to offer its users the corresponding source. A permissive licence
+would let someone stand up an altered copy — different quotas, a tampered
+chain, a payment step Ergonia does not have — with no obligation to show what
+they changed. The whole claim here is that the register can be re-verified from
+the outside; the licence keeps that claim checkable on derivatives too.
+
+Running an unmodified copy is unaffected. So is using the API or the MCP
+endpoints — clients are not derivative works.
+
+If you do run a public copy, note `/api/official` is hardcoded to
+`ergonia.works` by design (see [Is this really Ergonia?](#is-this-really-ergonia)).
+Point it at your own domain rather than leaving it certifying someone else's.

@@ -70,7 +70,10 @@ describe("GET /api/official", () => {
       "https://ergonia.works/mcp",
       "https://ergonia.works/mcp/read",
     ]);
-    expect(r.body.source).toBe(null);
+    // The repository is public, so the registry names it: an
+    // anti-impersonation claim nobody can audit is only an assertion.
+    expect(r.body.source).toBe("https://github.com/ianewsfr-a11y/ergonia");
+    expect(r.body.license).toBe("AGPL-3.0-or-later");
     expect(r.body.token).toBe(null);
     expect(r.body.steward).toEqual({
       handle: "ergonia-founder",
