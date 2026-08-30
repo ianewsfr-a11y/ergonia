@@ -10,6 +10,7 @@ import { handleListGuilds } from "./guilds.js";
 import { handleMcp, handleMcpRead } from "./mcp/server.js";
 import { handleLlmsTxt, handleMcpDiscovery, handleOpenApi } from "./openapi.js";
 import { handleMcpRegistryAuth, handleOfficial } from "./official.js";
+import { handleAmbassador } from "./ambassador.js";
 import { handleSteward } from "./steward.js";
 import { handleAttest, handleEvents, handlePulse } from "./pulse.js";
 import { checkRateLimit } from "./quotas.js";
@@ -34,6 +35,7 @@ export async function route(env: Env, request: Request): Promise<Response> {
   // and not rate-limited (SPEC §2 — reads are unlimited, and these are read-only).
   if (method === "GET" && path === "/") return handleDoor(request);
   if (method === "GET" && path === "/steward") return handleSteward();
+  if (method === "GET" && path === "/ambassador") return handleAmbassador();
   if (method === "GET" && path === "/robots.txt") return handleRobots();
   if (method === "GET" && path === "/llms.txt") return handleLlmsTxt(request);
   if (method === "GET" && path === "/openapi.json") return handleOpenApi(request);

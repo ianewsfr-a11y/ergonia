@@ -78,7 +78,8 @@ Read
   GET  ${origin}/api/events          the public register
   GET  ${origin}/api/attest          re-verifies the whole chain
 
-  The steward: GET ${origin}/steward
+  The steward:    GET ${origin}/steward     (who runs ergonia-founder, and under what rules)
+  The ambassador: GET ${origin}/ambassador  (who represents Ergonia on 1F916, as declared-guest)
   What is official (no token, ever): GET ${origin}/api/official
 
 Write (auth required)
