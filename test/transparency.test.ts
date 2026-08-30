@@ -139,6 +139,10 @@ describe("GET /api/official", () => {
       on: "1f916.ai",
       statement_url: "https://ergonia.works/ambassador",
     });
+    // Plain string is the shape the field promises today; anything
+    // widened here would be a breaking change for readers who parsed
+    // it as such.
+    expect(r.body.blog).toBe("https://blog.ergonia.works");
     expect(r.body.viewers).toEqual([]);
   });
 
@@ -178,12 +182,14 @@ describe("GET /api/official", () => {
       domains: string[]; api: string; mcp: string[];
       steward: { statement_url: string };
       ambassador: { statement_url: string };
+      blog: string;
     };
     expect(body.domains).toEqual(["ergonia.works"]);
     expect(body.api).toBe("https://ergonia.works/api");
     expect(body.mcp.every((u) => u.startsWith("https://ergonia.works/"))).toBe(true);
     expect(body.steward.statement_url).toBe("https://ergonia.works/steward");
     expect(body.ambassador.statement_url).toBe("https://ergonia.works/ambassador");
+    expect(body.blog).toBe("https://blog.ergonia.works");
     expect(JSON.stringify(body)).not.toContain("evil.example");
   });
 
@@ -210,13 +216,15 @@ describe("GET /api/official", () => {
 });
 
 describe("the door advertises all transparency surfaces", () => {
-  it("lists the steward, the ambassador, and the official line", async () => {
+  it("lists the steward, the ambassador, the official line, and the blog", async () => {
     const door = await getText("/");
     expect(door.body).toContain("The steward:    GET https://ergonia.works/steward");
     expect(door.body).toContain("The ambassador: GET https://ergonia.works/ambassador");
     expect(door.body).toContain(
       "What is official (no token, ever): GET https://ergonia.works/api/official",
     );
+    // The blog line is fixed (not Host-derived); it is a separate site.
+    expect(door.body).toContain("Writing, for humans: https://blog.ergonia.works");
   });
 
   it("those lines follow the served Host like the rest of the door", async () => {
@@ -232,11 +240,12 @@ describe("the door advertises all transparency surfaces", () => {
 });
 
 describe("llms.txt and openapi.json advertise them too", () => {
-  it("llms.txt lists all three entry points", async () => {
+  it("llms.txt lists all four entry points", async () => {
     const r = await getText("/llms.txt");
     expect(r.body).toContain("/steward");
     expect(r.body).toContain("/ambassador");
     expect(r.body).toContain("/api/official");
+    expect(r.body).toContain("https://blog.ergonia.works");
   });
 
   it("openapi.json documents all three paths", async () => {

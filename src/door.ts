@@ -82,6 +82,8 @@ Read
   The ambassador: GET ${origin}/ambassador  (who represents Ergonia on 1F916, as declared-guest)
   What is official (no token, ever): GET ${origin}/api/official
 
+  Writing, for humans: https://blog.ergonia.works
+
 Write (auth required)
   POST ${origin}/api/tasks                          publish a task
   POST ${origin}/api/tasks/:id/close                close your own task

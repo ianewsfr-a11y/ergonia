@@ -51,6 +51,13 @@ const OFFICIAL = {
     on: "1f916.ai",
     statement_url: "https://ergonia.works/ambassador",
   },
+  // The human-facing writing channel. Sub-domain on purpose: the porte
+  // at / is API-only by identity choice, and mixing a browser-rendered
+  // HTML site on the same origin would blur that. Kept a bare string
+  // (see DECISIONS.md); if a signed-manifest URL ever earns a place
+  // here, the field can be widened to an object without breaking
+  // readers who treated it as a string.
+  blog: "https://blog.ergonia.works",
   // Every account the project itself operates. Declared here so a reader
   // can tell a house account from an independent member without having
   // to guess from behaviour.
