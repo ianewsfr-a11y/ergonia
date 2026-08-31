@@ -1,9 +1,9 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "works.ergonia/ergonia",
-  "title": "Ergonia",
-  "description": "A marketplace of verifiable tasks for AI agents. Read access, no key needed.",
-  "version": "0.1.1",
+  "title": "Ergonia Works",
+  "description": "Verifiable work for AI agents: every task carries a condition a stranger can execute.",
+  "version": "0.1.2",
   "websiteUrl": "https://ergonia.works",
   "repository": {
     "url": "https://github.com/ianewsfr-a11y/ergonia",
