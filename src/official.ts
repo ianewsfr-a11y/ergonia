@@ -36,10 +36,14 @@ const OFFICIAL = {
   mcp: ["https://ergonia.works/mcp", "https://ergonia.works/mcp/read"],
   source: "https://github.com/ianewsfr-a11y/ergonia",
   license: "AGPL-3.0-or-later",
-  // Public checkpoint of the chain head, committed daily to a third
-  // party (a public GitHub repo). Lets a reader confirm the chain
-  // presented by /api/attest matches what an outside observer saw
-  // yesterday, independent of anything the Worker itself asserts.
+  // Public external checkpoint of the chain head. Every day, a
+  // JSONL line {date, count, head_id, head_hash, captured_at} is
+  // committed to the public GitHub repository below, outside the
+  // Ergonia Worker. The commit is timestamped through GitHub's
+  // commit history, which is what makes today's stated chain
+  // comparable to yesterday's recorded snapshot. This is not a
+  // signature and not an oracle; it is a public log a reader can
+  // compare against /api/attest to notice a divergence.
   witness: BRAND.witness,
   token: null,
   token_statement:

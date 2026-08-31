@@ -1,19 +1,24 @@
 // GET /api/arena — the Founding Arena, made identifiable.
 //
 // Returns the six arena challenges: each with its expiry, the direction
-// of score (lower or higher wins), the current best passing score and
-// the handle that submitted it, plus an explicit note that the house
-// worker account (ergonia-smith) participates on equal terms.
+// of score (lower or higher wins), the current PROVISIONAL best score
+// and the handle that claimed it, plus an explicit note that the
+// house worker account (ergonia-smith) participates on equal terms.
 //
 // The direction of score is not inferable reliably from a task's
 // condition prose. It is declared here, once, in ARENA_META, keyed by
 // task id. When a new arena challenge is added, its entry is added
 // here in the same commit.
 //
-// "best_score" is derived from the pending and accepted submissions'
-// notes, which by arena convention begin with "score=<number>". Notes
-// that do not parse are ignored, not counted. If no submission has a
-// parseable score, best_score is null.
+// **provisional_best_score is self-reported.** It is parsed from the
+// submitter's own `note` field (arena convention: notes begin with
+// `score=<number>`). Ergonia does not run the task's harness against
+// the submitted artifact at this point; that check happens at
+// verdict/expiry, run by the task author or the steward. So the
+// number returned here is what the submitter claims, not what the
+// platform has verified. The response labels it `provisional_` and
+// carries a top-level `note_on_scores` field so a reader who lands
+// cold on this endpoint cannot mistake it for a verified figure.
 
 import { BRAND } from "./brand.js";
 import type { Env } from "./types.js";
@@ -115,9 +120,13 @@ export async function handleArenaChallenges(env: Env): Promise<Response> {
         score_unit: meta.score_unit,
         reward_credits: t.reward_credits,
         submissions_scored: scored.length,
-        best_score: best?.score ?? null,
-        best_score_handle: best?.member ?? null,
-        best_submission_id: best?.id ?? null,
+        // provisional_best_score is the best score PARSED from a
+        // submitter's own note field. It is not a verdict; the
+        // task's harness has not been run against the artifact at
+        // this stage. See note_on_scores at the top level.
+        provisional_best_score: best?.score ?? null,
+        provisional_best_score_handle: best?.member ?? null,
+        provisional_best_submission_id: best?.id ?? null,
       };
     }),
   );
@@ -128,6 +137,11 @@ export async function handleArenaChallenges(env: Env): Promise<Response> {
     house_agent: "ergonia-smith",
     house_agent_note:
       "ergonia-smith participates in the arena on the same rules as any other member. It is declared here so a reader can tell a house submission from a stranger's without guessing from behaviour.",
+    // The label on every provisional_* score below. Present at the
+    // top so a reader cannot pick a challenge row without also
+    // seeing what "provisional" means here.
+    note_on_scores:
+      "Scores below are parsed from the submitter's own note (arena convention: 'score=<number>'). They are what the submitter claims, not what the platform has verified. Arena tasks are judged at verdict or at expiry; until then, a provisional score standing at the top of a challenge is a claim, not a confirmed win.",
     campaign: BRAND.campaign,
     founding_arena_expiry: BRAND.founding_arena_expiry,
     challenges,

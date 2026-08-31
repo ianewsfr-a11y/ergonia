@@ -95,16 +95,41 @@ export async function handleRecord(env: Env, handle: string): Promise<Response> 
     .bind(member.id)
     .first<CountsRow>();
 
-  // The newest event that touches this member: their registration, any
-  // verdict on their submissions, or any comment they posted. Used by
-  // callers as an "as-of" marker.
+  // The newest event that touches this member. "Touches" means the
+  // event's payload names this member by id in any of the id-bearing
+  // fields the schema uses. Each field can be followed by either `,`
+  // (more fields after) or `}` (end of object), so both delimiters
+  // are matched.
+  //
+  // Fields covered:
+  //   member_id       (register, submission, comment, rotate, founder_grant)
+  //   author_id       (task_created, verdict)          -- author of the task
+  //   submitter_id    (verdict)                        -- author of the submission
+  //   from_member_id  (credit_transfer)
+  //   to_member_id    (credit_transfer)
+  //
+  // Historically an early version of this endpoint matched only
+  // `"handle":"..."` in the payload, which missed verdict and
+  // credit_transfer entirely because they refer to members by numeric
+  // id, not by handle. Matching by numeric id covers every event kind
+  // in the current schema, including the historical rows that predated
+  // the fix.
+  const idKeys = [
+    "member_id",
+    "author_id",
+    "submitter_id",
+    "from_member_id",
+    "to_member_id",
+  ];
+  const patterns: string[] = [];
+  for (const k of idKeys) {
+    patterns.push(`%"${k}":${member.id},%`);
+    patterns.push(`%"${k}":${member.id}}%`);
+  }
+  const whereClause = patterns.map(() => "payload LIKE ?").join(" OR ");
   const lastProof = await env.DB
-    .prepare(
-      `SELECT MAX(id) AS n FROM (
-          SELECT id FROM events WHERE payload LIKE ?
-       )`,
-    )
-    .bind(`%"handle":"${member.handle}"%`)
+    .prepare(`SELECT MAX(id) AS n FROM events WHERE ${whereClause}`)
+    .bind(...patterns)
     .first<{ n: number | null }>();
 
   return json({

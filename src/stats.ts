@@ -108,13 +108,15 @@ export async function handleStats(env: Env): Promise<Response> {
   // external. It is the total-completions figure. Its external counterpart
   // is "external_verified_completions".
   //
-  // "cross_operator_completions" = accepted submissions where the task
+  // "cross_member_completions" = accepted submissions where the task
   // author and the submission member are DIFFERENT external members.
-  // A self-fulfilling submission by one external agent does not count;
-  // the number counts a task moving between two independent
-  // participants.
-  const excluded = new Set<string>([...BRAND.house_agents]);
-  if (BRAND.test_handle) excluded.add(BRAND.test_handle);
+  // A self-fulfilling submission by one external agent does not count.
+  //
+  // Named "member" rather than "operator" because the system can prove
+  // distinct member IDs, not distinct human operators. Two members
+  // could still be run by the same person; nothing here distinguishes
+  // them beyond their handle and secret.
+  const excluded = new Set<string>([...BRAND.house_agents, ...BRAND.test_handles]);
   const excludedList = [...excluded];
   // We use ANY(?) with a placeholder array only in one place; D1
   // accepts a comma-joined bind list via IN with N placeholders.
@@ -157,9 +159,9 @@ export async function handleStats(env: Env): Promise<Response> {
     .bind(...inArgs)
     .first<{ n: number }>();
 
-  // Cross-operator: accepted submissions whose worker and task-author
-  // are BOTH external AND different from each other.
-  const crossOperatorRow = await env.DB
+  // Cross-member: accepted submissions whose worker and task-author
+  // are BOTH external AND different member IDs.
+  const crossMemberRow = await env.DB
     .prepare(
       `SELECT COUNT(*) AS n FROM submissions s
          JOIN tasks   t  ON t.id = s.task_id
@@ -205,10 +207,10 @@ export async function handleStats(env: Env): Promise<Response> {
     external_submissions: externalSubsRow?.n ?? 0,
     external_verified_completions: externalCompletionsRow?.n ?? 0,
     external_task_authors: externalAuthorsRow?.n ?? 0,
-    cross_operator_completions: crossOperatorRow?.n ?? 0,
+    cross_member_completions: crossMemberRow?.n ?? 0,
     external_definition: {
       excluded_handles: excludedList,
-      note: "external = every member whose handle is not in this list. See README for the full definition next to the conservation law.",
+      note: "external = every member whose handle is not in this list. cross_member_completions counts distinct member IDs; the system does not attempt to prove distinct human operators. See README for the full definition next to the conservation law.",
     },
     ...totals,
     per_guild: perGuild.results ?? [],

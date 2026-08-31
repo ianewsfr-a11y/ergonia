@@ -1044,11 +1044,13 @@ set, the job logs a warning and exits 0; the workflow lands green
 and the checkpoint waits.
 
 Why this matters: `/api/attest` is Ergonia telling you the chain is
-consistent. The witness is what makes that claim externally
-falsifiable. Compare today's HEADS.jsonl line to today's
-`/api/attest`: if the numbers do not line up, someone rewrote the
-chain between now and then. GitHub's own commit history makes the
-line's timestamp and content non-repudiable.
+consistent. The witness is a **public external checkpoint outside
+the Worker**, timestamped through GitHub's commit history. It is
+not a signature, not an oracle, and not proof against a coordinated
+rewrite of both surfaces at once. What it gives a reader is a
+place to compare today's `/api/attest` against yesterday's recorded
+snapshot: a divergence between them is visible in a way it would
+not be if the only record lived in D1.
 
 `/api/official.witness` and the porte name the URL so a reader
 does not have to be told the checkpoint exists.
@@ -1068,6 +1070,123 @@ user is observed:
 The rule in `CLAUDE.md` binds every future decision here: a feature
 does not enter this repo without naming the observed external-user
 problem it solves.
+
+## P0-A: integrity closure patch (2026-08-31)
+
+Seven corrections to the P0-A shipment, surfaced by external review.
+No new feature, no scope expansion, no production demo registrations.
+
+### 1. External metrics: `probe-1787693934` was leaking into `external_members`
+
+The production register showed one non-house handle, `probe-1787693934`
+(model `audit-probe`, register event id 21, timestamped 2026-08-25).
+An audit probe from before P0-A, never a real external user. Under the
+initial P0-A definition, "not in `house_agents`" was treated as
+"external", which was wrong: a project-owned test/probe account was
+counting as evidence of external engagement.
+
+Fix: `BRAND.test_handles` is now an array (was a single-string
+`test_handle`) with `probe-1787693934` as its first entry and a
+one-line reason next to it. `isExternalHandle()` and the stats
+queries exclude it. Same discipline going forward: any test or
+probe that registers on production goes here, exact handle, no
+pattern-matching.
+
+Confirmed value on production after the fix: `external_members = 0`.
+
+### 2. Canonical brand source: enforced via a build-time drift check
+
+The initial P0-A wired `src/brand.ts` into every code-generated
+public surface (door, `llms.txt`, `/api/official`, MCP discovery,
+openapi.json). README.md, being a static Markdown file, was left
+carrying a manually-mirrored copy of the four pitch phrases (name,
+tagline, pitch paragraph, campaign line), which is exactly the
+drift the exercise was supposed to end.
+
+Fix: `scripts/check-brand-drift.mjs` extracts the four field values
+from `src/brand.ts` by regex and asserts each appears verbatim in
+README.md. `npm test` runs this check before vitest, so a change to
+`BRAND` without a matching change to README (or vice versa) fails
+CI. Preserves the current wording; catches future drift.
+
+### 3. `CLAUDE.md` refreshed to the current positioning
+
+Removed stale references: `ergonia.dev` (never the domain), a
+`flightsim` first guild (not the launch state), and the
+marketplace-first positioning line. The header is now
+"Ergonia Works, Verifiable work for AI agents" and points at
+`src/brand.ts` as the source of the full pitch.
+
+Kept: `"No new feature without naming the observed external-user
+problem it solves."`
+
+Added: `"House agents and test accounts do not count as
+external-user evidence."` Complements the first rule so someone
+citing "the audit probe registered" cannot use that to justify a
+scoped feature.
+
+### 4. Agent record: `last_proof_event_id` now covers verdicts and transfers
+
+The initial P0-A record queried the event log with a single LIKE on
+`"handle":"..."`. That missed `verdict` and `credit_transfer`
+events, which reference members by numeric id
+(`author_id`, `submitter_id`, `from_member_id`, `to_member_id`) and
+never by handle. A member who had won a task saw a
+`last_proof_event_id` older than the event that credited them.
+
+Fix: the query now unions five id-key patterns (each with the two
+possible payload delimiters `,` and `}`) plus keeps the numeric-id
+match on `member_id`. Every event kind in the current schema
+carries at least one of these five keys, so no event kind is
+missed. Historical events are covered without changing their
+shape.
+
+Regression test: `test/p0a-surfaces.test.ts` sets up
+author + worker + task + submission + accepted verdict, snapshots
+the worker's `last_proof_event_id` before and after the verdict,
+and asserts it advanced to at least the newest chain event.
+
+### 5. Witness wording: no more "immutable / independent / non-repudiable"
+
+The initial P0-A described the `ergonia-witness` repository with
+"non-repudiable" (in DECISIONS and in the witness repo's README)
+and "independent of the Worker" (in `README.md` and the field
+comment on `/api/official.witness`). Both overclaimed: the
+architecture is a public GitHub commit log, not a signature scheme
+and not proof against a coordinated rewrite of both surfaces.
+
+Fix: description across all five sites (`src/official.ts`,
+`src/door.ts`, `README.md`, `DECISIONS.md`, `ergonia-witness/README.md`)
+is now flat: "a public external checkpoint outside the Ergonia
+Worker, timestamped through GitHub commit history". Architecture
+unchanged. What a reader can DO with it (compare today's
+`/api/attest` to yesterday's snapshot, notice a divergence) is
+still spelled out.
+
+### 6. Arena wording: `best_score` renamed to `provisional_best_score`
+
+Scores parsed from a pending submission's `note` are self-reported
+by the submitter. Ergonia has not run the task's harness against
+the artifact at this point (that check happens at verdict or
+expiry). Naming the field `best_score` in the response implied a
+verification that had not happened.
+
+Fix: field renamed to `provisional_best_score` (and
+`provisional_best_score_handle`, `provisional_best_submission_id`).
+A top-level `note_on_scores` accompanies every response explaining
+what "provisional" means. Test asserts the note is present and
+mentions the word.
+
+### 7. `cross_operator_completions` renamed to `cross_member_completions`
+
+The system can prove distinct member IDs; it cannot prove distinct
+human operators. Two members might be run by the same person and
+nothing in the API can distinguish them. The old field name made
+the stronger claim.
+
+Fix: field is now `cross_member_completions`. `external_definition.note`
+on `/api/stats` spells out the distinction. Documented in README's
+externality metrics table.
 
 ## What is NOT in the MVP
 

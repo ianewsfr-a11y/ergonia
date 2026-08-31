@@ -8,8 +8,14 @@
 
 import { SELF } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import { api, register, registerFounder } from "./helpers.js";
+import { api, goodCondition, register, registerFounder } from "./helpers.js";
 import { BRAND } from "../src/brand.js";
+
+// The README drift check (BRAND phrases must appear literally in
+// README.md) does NOT live here: the vitest workers pool has no
+// access to node:fs, so a standalone Node script does the check
+// and is wired into `npm test` via package.json.
+// See scripts/check-brand-drift.mjs.
 
 async function getText(path: string, host = "ergonia.works"): Promise<{ status: number; body: string; res: Response }> {
   const res = await SELF.fetch(`https://${host}${path}`);
@@ -82,15 +88,23 @@ describe("GET /api/arena", () => {
       expect(typeof c.title).toBe("string");
       expect(["higher", "lower", "pass_fail"]).toContain(c.direction as string);
       expect(typeof c.score_unit).toBe("string");
-      // best_score is nullable (no submissions yet, or pass_fail direction);
-      // when non-null it is a number, and best_score_handle is a string.
-      if (c.best_score !== null) {
-        expect(typeof c.best_score).toBe("number");
-        expect(typeof c.best_score_handle).toBe("string");
+      // Field is named provisional_best_score to make explicit that it
+      // is the submitter's self-reported claim, not a platform-verified
+      // figure. Nullable (no submissions yet, or pass_fail direction).
+      if (c.provisional_best_score !== null) {
+        expect(typeof c.provisional_best_score).toBe("number");
+        expect(typeof c.provisional_best_score_handle).toBe("string");
       } else {
-        expect(c.best_score_handle).toBeNull();
+        expect(c.provisional_best_score_handle).toBeNull();
       }
     }
+  });
+
+  it("carries the top-level note explaining that scores are provisional", async () => {
+    const r = await api("GET", "/api/arena");
+    expect(typeof r.body.note_on_scores).toBe("string");
+    expect(r.body.note_on_scores.toLowerCase()).toContain("provisional");
+    expect(r.body.note_on_scores).toContain("submitter");
   });
 });
 
@@ -104,14 +118,16 @@ describe("/api/stats externality metrics", () => {
       "external_submissions",
       "external_verified_completions",
       "external_task_authors",
-      "cross_operator_completions",
+      "cross_member_completions",
     ]) {
       expect(typeof r.body[k], `${k} is present and numeric`).toBe("number");
     }
     // The definition of "external" is on the response itself, so a
     // caller does not have to read README to interpret the numbers.
     expect(Array.isArray(r.body.external_definition?.excluded_handles)).toBe(true);
-    expect(r.body.external_definition.excluded_handles).toEqual(expect.arrayContaining([...BRAND.house_agents]));
+    expect(r.body.external_definition.excluded_handles).toEqual(
+      expect.arrayContaining([...BRAND.house_agents, ...BRAND.test_handles]),
+    );
   });
 
   it("registering a non-house member increments external_members", async () => {
@@ -202,8 +218,81 @@ describe("the door lists the arena, the record, the badge, and the witness", () 
     expect(r.body).toContain("/badge/:handle.svg");
   });
 
-  it("names the public checkpoint (witness) URL from BRAND", async () => {
+  it("names the public external checkpoint (witness) URL from BRAND", async () => {
     const r = await getText("/");
     expect(r.body).toContain(BRAND.witness);
   });
 });
+
+// last_proof_event_id has to be the newest chain event that names this
+// member, including verdict and credit_transfer events whose payloads
+// reference member IDs (not the member's handle). Regression against
+// the earlier version of this endpoint that matched handles only.
+describe("agent record: last_proof_event_id spans verdict + credit_transfer", () => {
+  it("submission -> accepted verdict -> credit_transfer advances the proof id", async () => {
+    // Set up an author (needs credits to escrow) and a worker.
+    const author = await register("p0a-proof-author");
+    const worker = await register("p0a-proof-worker");
+
+    // Author publishes a task.
+    const publish = await api("POST", "/api/tasks", {
+      token: author.secret,
+      body: {
+        guild: "code",
+        title: "Proof-of-verdict regression test task",
+        brief: "Fixture only. Not real work.",
+        condition: goodCondition(),
+        reward_credits: 5,
+      },
+    });
+    expect(publish.status).toBe(201);
+    const taskId = publish.body.task?.id ?? publish.body.id;
+
+    // Worker submits.
+    const submit = await api("POST", "/api/submissions", {
+      token: worker.secret,
+      body: {
+        task_id: taskId,
+        artifact: "https://example.test/proof.json",
+        note: "the url returns the expected sha256=deadbeef ok",
+      },
+    });
+    expect(submit.status).toBe(201);
+    const submissionId = submit.body.submission?.id ?? submit.body.id;
+
+    // Snapshot the worker's proof id BEFORE the verdict lands.
+    const before = await api("GET", `/api/members/${worker.handle}/record`);
+    expect(before.status).toBe(200);
+    const proofBefore = before.body.last_proof_event_id as number;
+    expect(typeof proofBefore).toBe("number");
+
+    // Author accepts. This emits verdict + credit_transfer events;
+    // neither carries the worker's handle, both carry the worker's
+    // member id (via submitter_id and to_member_id respectively).
+    const verdict = await api("POST", `/api/submissions/${submissionId}/verdict`, {
+      token: author.secret,
+      body: { status: "accepted", reason: "fixture: condition items ok" },
+    });
+    expect(verdict.status).toBe(200);
+
+    // The pulse gives us the id of the newest event on the whole chain.
+    // The worker's last_proof_event_id must be at least that recent
+    // (its latest event OR one of the verdict/transfer events that
+    // just landed).
+    const pulse = await api("GET", "/api/pulse");
+    const chainHead = pulse.body.last_event_id as number;
+    expect(typeof chainHead).toBe("number");
+
+    const after = await api("GET", `/api/members/${worker.handle}/record`);
+    expect(after.status).toBe(200);
+    const proofAfter = after.body.last_proof_event_id as number;
+    expect(typeof proofAfter).toBe("number");
+
+    // Verdict + credit_transfer definitely affect the worker.
+    // The proof id must advance, and it must be at least as recent
+    // as the chain head (there are no unrelated events between).
+    expect(proofAfter).toBeGreaterThan(proofBefore);
+    expect(proofAfter).toBeGreaterThanOrEqual(chainHead - 1);
+  });
+});
+

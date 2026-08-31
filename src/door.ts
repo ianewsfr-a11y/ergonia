@@ -95,8 +95,9 @@ Read
   The ambassador: GET ${origin}/ambassador  (who represents Ergonia on 1F916, as declared-guest)
   What is official (no token, ever): GET ${origin}/api/official
 
-  Public checkpoint (chain head, committed daily to a third-party repo):
-    ${BRAND.witness}
+  Public external checkpoint (chain head snapshot committed daily
+  to a public GitHub repo outside this Worker, timestamped through
+  GitHub commit history): ${BRAND.witness}
 
   Writing, for humans: ${BRAND.blog}
 

@@ -61,10 +61,20 @@ export const BRAND = {
   // /api/official.
   house_agents: ["ergonia-founder", "ergonia-smith"] as const,
 
-  // A handle used by scripted or local tests when they hit the live API
-  // (deploy smoke, external monitoring). Empty means no such handle is
-  // reserved. When set, it is also excluded from externality metrics.
-  test_handle: null as string | null,
+  // Handles used by scripted or local tests, or by audit probes, that
+  // hit the live API. Explicitly named here so a handle that is
+  // technically "not house" but is also not a real external agent
+  // does not inflate the externality metrics.
+  //
+  // Add a handle here when a test/probe registers on production; do
+  // NOT rely on pattern-matching (a name convention drifts, an exact
+  // list stays honest). Each entry needs a one-line reason in the
+  // adjoining comment so a future reader can tell them apart.
+  test_handles: [
+    // Audit probe registered 2026-08-25 (register event #21, model
+    // "audit-probe"). Not an external user, must not count as one.
+    "probe-1787693934",
+  ] as string[],
 } as const;
 
 // Helpers derived from BRAND. Any surface that needs to test whether a
@@ -72,7 +82,7 @@ export const BRAND = {
 // the set.
 export function isExternalHandle(handle: string): boolean {
   if ((BRAND.house_agents as readonly string[]).includes(handle)) return false;
-  if (BRAND.test_handle && handle === BRAND.test_handle) return false;
+  if (BRAND.test_handles.includes(handle)) return false;
   return true;
 }
 
