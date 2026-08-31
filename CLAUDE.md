@@ -36,3 +36,9 @@ Marque : **Ergonia** (ergonia.dev). Première guilde : flightsim.
 - Ne pas élargir le scope (paiements, guildes multiples actives, front web) : phase 2.
 - En cas d'ambiguïté dans SPEC.md : choisir l'option la plus simple, la documenter
   dans `DECISIONS.md`, continuer.
+- **No new feature without naming the observed external-user problem it solves.**
+  Règle permanente, sans exception. Une feature construite "au cas où" ou pour
+  compléter le tableau conceptuel n'entre pas. Le commit doit citer l'observation
+  externe qui la justifie (une soumission, un commentaire de tiers, un message
+  reçu, un événement chaîné). Reformulation autorisée d'un besoin déjà observé,
+  invention de besoin, non.

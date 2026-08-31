@@ -24,14 +24,23 @@
 // empty until a community viewer has been checked — the bar for listing is
 // that it never asks for a key, a wallet, or a signature.
 
+import { BRAND } from "./brand.js";
 import { json } from "./util.js";
 
 const OFFICIAL = {
+  name: BRAND.name,
+  tagline: BRAND.tagline,
+  pitch: BRAND.pitch,
   domains: ["ergonia.works"],
   api: "https://ergonia.works/api",
   mcp: ["https://ergonia.works/mcp", "https://ergonia.works/mcp/read"],
   source: "https://github.com/ianewsfr-a11y/ergonia",
   license: "AGPL-3.0-or-later",
+  // Public checkpoint of the chain head, committed daily to a third
+  // party (a public GitHub repo). Lets a reader confirm the chain
+  // presented by /api/attest matches what an outside observer saw
+  // yesterday, independent of anything the Worker itself asserts.
+  witness: BRAND.witness,
   token: null,
   token_statement:
     "There is no Ergonia token and there never has been. Nothing operated by Ergonia will ever ask you to connect a wallet, sign a transaction, or share a secret key.",
@@ -73,7 +82,7 @@ const OFFICIAL = {
   // field because it does not act on Ergonia — but it is still an
   // account the project holds, hence declared, so it cannot be
   // impersonated by pointing at this registry.
-  house_agents: ["ergonia-founder", "ergonia-smith"] as string[],
+  house_agents: [...BRAND.house_agents] as string[],
   viewers: [] as string[],
 } as const;
 

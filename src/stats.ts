@@ -3,6 +3,7 @@
 // here is derivable from /api/events, but returning it in one call
 // spares clients from replaying the register.
 
+import { BRAND } from "./brand.js";
 import type { Env } from "./types.js";
 import { json } from "./util.js";
 
@@ -96,6 +97,82 @@ export async function handleStats(env: Env): Promise<Response> {
     )
     .all<GuildStats>();
 
+  // Externality metrics. Every "external" figure is the same query the
+  // whole-platform version runs, minus rows attributable to house
+  // agents and the reserved test handle (see BRAND.house_agents /
+  // BRAND.test_handle). The definition is documented in README next to
+  // the conservation law. Presented first in the response body so the
+  // most operationally interesting number is visible without scrolling.
+  //
+  // "verified_work" = every accepted verdict on the platform, house or
+  // external. It is the total-completions figure. Its external counterpart
+  // is "external_verified_completions".
+  //
+  // "cross_operator_completions" = accepted submissions where the task
+  // author and the submission member are DIFFERENT external members.
+  // A self-fulfilling submission by one external agent does not count;
+  // the number counts a task moving between two independent
+  // participants.
+  const excluded = new Set<string>([...BRAND.house_agents]);
+  if (BRAND.test_handle) excluded.add(BRAND.test_handle);
+  const excludedList = [...excluded];
+  // We use ANY(?) with a placeholder array only in one place; D1
+  // accepts a comma-joined bind list via IN with N placeholders.
+  const inPlaceholders = excludedList.map(() => "?").join(",");
+  const inArgs = excludedList;
+
+  const verifiedWorkRow = await env.DB
+    .prepare("SELECT COUNT(*) AS n FROM submissions WHERE status = 'accepted'")
+    .first<{ n: number }>();
+
+  const externalMembersRow = await env.DB
+    .prepare(`SELECT COUNT(*) AS n FROM members WHERE handle NOT IN (${inPlaceholders})`)
+    .bind(...inArgs)
+    .first<{ n: number }>();
+
+  const externalSubsRow = await env.DB
+    .prepare(
+      `SELECT COUNT(*) AS n FROM submissions s
+         JOIN members m ON m.id = s.member_id
+         WHERE m.handle NOT IN (${inPlaceholders})`,
+    )
+    .bind(...inArgs)
+    .first<{ n: number }>();
+
+  const externalCompletionsRow = await env.DB
+    .prepare(
+      `SELECT COUNT(*) AS n FROM submissions s
+         JOIN members m ON m.id = s.member_id
+         WHERE s.status = 'accepted' AND m.handle NOT IN (${inPlaceholders})`,
+    )
+    .bind(...inArgs)
+    .first<{ n: number }>();
+
+  const externalAuthorsRow = await env.DB
+    .prepare(
+      `SELECT COUNT(DISTINCT t.author_id) AS n FROM tasks t
+         JOIN members m ON m.id = t.author_id
+         WHERE m.handle NOT IN (${inPlaceholders})`,
+    )
+    .bind(...inArgs)
+    .first<{ n: number }>();
+
+  // Cross-operator: accepted submissions whose worker and task-author
+  // are BOTH external AND different from each other.
+  const crossOperatorRow = await env.DB
+    .prepare(
+      `SELECT COUNT(*) AS n FROM submissions s
+         JOIN tasks   t  ON t.id = s.task_id
+         JOIN members mw ON mw.id = s.member_id
+         JOIN members ma ON ma.id = t.author_id
+         WHERE s.status = 'accepted'
+           AND mw.handle NOT IN (${inPlaceholders})
+           AND ma.handle NOT IN (${inPlaceholders})
+           AND mw.id != ma.id`,
+    )
+    .bind(...inArgs, ...inArgs)
+    .first<{ n: number }>();
+
   const totals: StatsRow = {
     members: membersRow?.n ?? 0,
     guilds: guildsRow?.n ?? 0,
@@ -122,6 +199,17 @@ export async function handleStats(env: Env): Promise<Response> {
   };
 
   return json({
+    // Externality metrics first: what strangers actually did here.
+    verified_work: verifiedWorkRow?.n ?? 0,
+    external_members: externalMembersRow?.n ?? 0,
+    external_submissions: externalSubsRow?.n ?? 0,
+    external_verified_completions: externalCompletionsRow?.n ?? 0,
+    external_task_authors: externalAuthorsRow?.n ?? 0,
+    cross_operator_completions: crossOperatorRow?.n ?? 0,
+    external_definition: {
+      excluded_handles: excludedList,
+      note: "external = every member whose handle is not in this list. See README for the full definition next to the conservation law.",
+    },
     ...totals,
     per_guild: perGuild.results ?? [],
     latest_task: latestTaskRow ?? null,

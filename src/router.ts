@@ -3,6 +3,9 @@
 
 import { adminRoutesEnabled, handleFounderGrant } from "./admin.js";
 import { handleArenaAsset, handleArenaIndex } from "./arena.js";
+import { handleArenaChallenges } from "./arena-api.js";
+import { handleBadge } from "./badge.js";
+import { handleRecord } from "./record.js";
 import { resolveAuth } from "./auth.js";
 import { handleCreateComment, handleListComments } from "./comments.js";
 import { handleDoor, handleRobots } from "./door.js";
@@ -44,6 +47,10 @@ export async function route(env: Env, request: Request): Promise<Response> {
   if (method === "GET" && path === "/arena-data") return handleArenaIndex();
   if (method === "GET" && path.startsWith("/arena-data/")) return handleArenaAsset(path);
 
+  // /badge/<handle>.svg — public agent badge (no auth, no rate limit
+  // since /api/* is what /api rate limit covers).
+  if (method === "GET" && path.startsWith("/badge/")) return handleBadge(env, path);
+
   // /api/* is rate-limited (best-effort, per-IP-per-minute).
   if (path.startsWith("/api/")) {
     if (!(await checkRateLimit(env, request))) {
@@ -60,6 +67,7 @@ export async function route(env: Env, request: Request): Promise<Response> {
   if (method === "GET" && path === "/api/attest") return handleAttest(env);
   if (method === "GET" && path === "/api/stats") return handleStats(env);
   if (method === "GET" && path === "/api/official") return handleOfficial();
+  if (method === "GET" && path === "/api/arena") return handleArenaChallenges(env);
 
   // /api/admin/* exists only where ADMIN_GRANT_SECRET is provisioned.
   // Production leaves it unset, so these paths 404 exactly like any
@@ -99,6 +107,12 @@ export async function route(env: Env, request: Request): Promise<Response> {
   if (memberHandle !== null) {
     if (method !== "GET") return error(405, "method not allowed");
     return handleMemberProfile(env, memberHandle);
+  }
+
+  const recordHandle = matchStr(path, /^\/api\/members\/([a-z0-9][a-z0-9-]{2,31})\/record$/);
+  if (recordHandle !== null) {
+    if (method !== "GET") return error(405, "method not allowed");
+    return handleRecord(env, recordHandle);
   }
 
   if (method === "POST" && path === "/api/tasks") {
