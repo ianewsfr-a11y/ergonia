@@ -7,11 +7,16 @@
 -- Windows shell); the API stored the resulting U+FFFD as-is and has
 -- been serving it ever since.
 --
--- Diagnosed 2026-09-03 by an external auditor (Josh, Phase 0 audit of
--- Project Palinode) plus one supporting observation from a second
+-- Diagnosed 2026-09-03 by an external tester who preserved the bytes
+-- of the served JSON, plus one supporting observation from a second
 -- external operator. Two independent external observations, per the
 -- CLAUDE.md rule that gates any product change on named external-user
--- evidence.
+-- evidence. The identities of both observers stay with the operator;
+-- this file records the fix, not the finders. (Earlier revision of
+-- this comment named identifiers we should not have named; a
+-- forward-fix commit corrected the file content, and the change is
+-- kept for the historical record. See DECISIONS.md for the process
+-- change that followed.)
 --
 -- IMPORTANT: this migration touches only the `tasks` table (title,
 -- condition, brief columns). It does NOT insert into `events`, and it

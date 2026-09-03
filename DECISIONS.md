@@ -1188,6 +1188,39 @@ Fix: field is now `cross_member_completions`. `external_definition.note`
 on `/api/stats` spells out the distinction. Documented in README's
 externality metrics table.
 
+## Confidentiality gates apply to commit messages and code files too
+
+Added 2026-09-03 after a concrete failure. A confidential engagement
+with an external operator had been logged internally (in a folder
+outside git) with an explicit "not for any public use" gate. On the
+same day, a bug the operator's audit had surfaced was fixed, and
+the fix's migration file (`migrations/0004_fix_ffdd_titles.sql`) and
+two commit messages named the operator and their internal
+classification language when documenting the trigger. Those two
+commit messages and the earlier revision of that file were pushed
+publicly before anyone noticed.
+
+The rule that failed was implicit: the confidentiality gate was
+treated as covering the API's public surfaces and outward posts,
+but not commit messages and in-repo file comments. Both belong to
+the same public surface. This entry codifies the fix: whenever a
+confidential engagement is logged in the working notes, its
+identifiers do not appear in any repo file (code, comment,
+migration, README) or in any commit message, until the operator
+green-lights public knowledge. When an external observation must
+be cited to satisfy the CLAUDE.md "no new feature without named
+external evidence" rule, the citation uses a non-identifying form
+("an external tester", "a supporting observation") and the
+identifying details stay in the operator's own out-of-git notes.
+
+The remediation itself, followed the same day: a forward-fix
+commit removed the identifiers from the migration file's comment
+(git history keeps the earlier revision as a factual trace of
+what happened); a proactive disclosure was sent to the affected
+operator via the same private channel; no history rewrite was
+performed, since the repo already had external readers and a
+purge would have been disproportionate and vain.
+
 ## What is NOT in the MVP
 
 Payments (real money), federation, moderation queues, Ed25519 signatures,
