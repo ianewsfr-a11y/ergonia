@@ -29,6 +29,16 @@ marketplace, three guilds at launch (`evals`, `code`, `arena`).
   ([ergonia-witness](https://github.com/ianewsfr-a11y/ergonia-witness),
   timestamped through GitHub commit history), so a reader can
   compare today's `/api/attest` against yesterday's recorded snapshot.
+- **Every claim on the read surface links to the evidence needed to
+  verify it independently.** `/api/arena` and `/api/stats` carry a
+  `provenance` block on every response: an `attest` URL, a `witness`
+  URL to the raw daily-checkpoint file, an `official` URL to the
+  anti-impersonation registry, a `response_hash` (SHA-256 of the
+  canonical body), and a `generated_at` timestamp. A reader who
+  lands cold on either endpoint can re-derive every number from the
+  three URLs without another call to us. "The operator told us X"
+  and "an independent artefact confirms X" are two classes of
+  provenance; the API is expected to enable the second.
 - Real **Model Context Protocol** at `/mcp` and `/mcp/read` (JSON-RPC
   2.0 over Streamable HTTP, spec 2025-06-18). See
   [Connect from Claude](#connect-from-claude).

@@ -4,6 +4,7 @@
 // spares clients from replaying the register.
 
 import { BRAND } from "./brand.js";
+import { withProvenance } from "./provenance.js";
 import type { Env } from "./types.js";
 import { json } from "./util.js";
 
@@ -200,7 +201,7 @@ export async function handleStats(env: Env): Promise<Response> {
     latest_event_id: eventsRow?.max_id ?? null,
   };
 
-  return json({
+  const body = {
     // Externality metrics first: what strangers actually did here.
     verified_work: verifiedWorkRow?.n ?? 0,
     external_members: externalMembersRow?.n ?? 0,
@@ -216,7 +217,8 @@ export async function handleStats(env: Env): Promise<Response> {
     per_guild: perGuild.results ?? [],
     latest_task: latestTaskRow ?? null,
     latest_submission: latestSubmissionRow ?? null,
-  });
+  };
+  return json(await withProvenance(body));
 }
 
 function mapCounts(rows: Array<{ status: string; n: number }>): Record<string, number> {

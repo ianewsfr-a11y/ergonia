@@ -70,6 +70,78 @@ describe("public texts do not use the em-dash character", () => {
   });
 });
 
+// Anti-regression for the 2026-08 seed pipeline defect: the eight
+// em-dashes in seed/founding-tasks.json arrived at D1 as U+FFFD
+// (Unicode replacement character) and were served that way for weeks
+// before an external auditor flagged it. This describe block asserts
+// U+FFFD is absent from every public read surface, so a repeat of the
+// same defect fails the build. See migrations/0004_fix_ffdd_titles.sql
+// for the corresponding data correction.
+//
+// EXCLUSION: /api/events is intentionally NOT checked here. It is
+// the append-only chain register; historical task_created events
+// captured a snapshot of the corrupted titles at insert time and
+// must remain visible in the chain for integrity to hold. See
+// migrations/0004_fix_ffdd_titles.sql for the tradeoff. A future
+// stranger who verifies the chain via /api/attest and finds those
+// historical rows is reading a true record of what happened.
+describe("no U+FFFD (replacement character) on any public surface", () => {
+  const REPLACEMENT = "�";
+  const jsonPaths = [
+    "/api/arena",
+    "/api/stats",
+    "/api/pulse",
+    "/api/tasks",
+    "/api/guilds",
+    "/api/attest",
+    "/api/official",
+  ];
+  const textPaths = ["/", "/llms.txt"];
+
+  for (const p of jsonPaths) {
+    it(`${p} JSON has zero U+FFFD anywhere`, async () => {
+      const r = await api("GET", p);
+      expect(JSON.stringify(r.body).includes(REPLACEMENT)).toBe(false);
+    });
+  }
+  for (const p of textPaths) {
+    it(`${p} body has zero U+FFFD`, async () => {
+      const r = await getText(p);
+      expect(r.body.includes(REPLACEMENT)).toBe(false);
+    });
+  }
+});
+
+// Provenance block on the two audit-facing read endpoints.
+// See src/provenance.ts for the shape and hashing rules.
+describe("provenance block on /api/arena and /api/stats", () => {
+  const provenancePaths = ["/api/arena", "/api/stats"];
+  for (const p of provenancePaths) {
+    it(`${p} carries a well-formed provenance block`, async () => {
+      const r = await api("GET", p);
+      expect(r.status).toBe(200);
+      const prov = r.body.provenance;
+      expect(prov).toBeDefined();
+      expect(typeof prov.attest).toBe("string");
+      expect(prov.attest).toMatch(/^https:\/\/ergonia\.works\/api\/attest$/);
+      expect(typeof prov.witness).toBe("string");
+      expect(prov.witness).toMatch(/HEADS\.jsonl$/);
+      expect(prov.witness.startsWith("https://raw.githubusercontent.com/")).toBe(true);
+      expect(typeof prov.official).toBe("string");
+      expect(prov.official).toMatch(/^https:\/\/ergonia\.works\/api\/official$/);
+      expect(typeof prov.response_hash).toBe("string");
+      expect(prov.response_hash).toMatch(/^[0-9a-f]{64}$/);
+      expect(typeof prov.generated_at).toBe("string");
+      expect(prov.generated_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+    });
+  }
+  it("response_hash is stable when the underlying data does not change", async () => {
+    const r1 = await api("GET", "/api/arena");
+    const r2 = await api("GET", "/api/arena");
+    expect(r1.body.provenance.response_hash).toBe(r2.body.provenance.response_hash);
+  });
+});
+
 describe("GET /api/arena", () => {
   it("returns a challenges array + house_agent declaration + campaign line", async () => {
     const r = await api("GET", "/api/arena");

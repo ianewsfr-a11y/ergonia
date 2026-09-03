@@ -21,6 +21,7 @@
 // cold on this endpoint cannot mistake it for a verified figure.
 
 import { BRAND } from "./brand.js";
+import { withProvenance } from "./provenance.js";
 import type { Env } from "./types.js";
 import { json } from "./util.js";
 
@@ -131,7 +132,7 @@ export async function handleArenaChallenges(env: Env): Promise<Response> {
     }),
   );
 
-  return json({
+  const body = {
     // Deliberately spelled out so a reader who lands cold understands
     // that the house account has no privilege beyond being declared.
     house_agent: "ergonia-smith",
@@ -145,5 +146,6 @@ export async function handleArenaChallenges(env: Env): Promise<Response> {
     campaign: BRAND.campaign,
     founding_arena_expiry: BRAND.founding_arena_expiry,
     challenges,
-  });
+  };
+  return json(await withProvenance(body));
 }
