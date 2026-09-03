@@ -10,6 +10,7 @@ import { SELF } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 import { api, goodCondition, register, registerFounder } from "./helpers.js";
 import { BRAND } from "../src/brand.js";
+import { JOURNEYMAN_MD } from "../src/journeyman-embed.js";
 
 // The README drift check (BRAND phrases must appear literally in
 // README.md) does NOT live here: the vitest workers pool has no
@@ -68,6 +69,69 @@ describe("public texts do not use the em-dash character", () => {
     const r = await api("GET", "/api/arena");
     expect(JSON.stringify(r.body).includes(EM)).toBe(false);
   });
+  it("/journeyman has zero em-dashes", async () => {
+    const r = await getText("/journeyman");
+    expect(r.body.includes(EM)).toBe(false);
+  });
+});
+
+// GET /journeyman drift check: what the endpoint serves must end with
+// the exact JOURNEYMAN_MD bytes embedded from JOURNEYMAN.md at the
+// repo root. Drift between the served text and the source-of-truth
+// file (either direction) fails the build.
+describe("GET /journeyman", () => {
+  it("responds 200 with a text/plain body", async () => {
+    const r = await getText("/journeyman");
+    expect(r.status).toBe(200);
+    expect(r.res.headers.get("content-type") || "").toMatch(/^text\/plain/);
+  });
+  it("ends with JOURNEYMAN.md verbatim (byte-equal)", async () => {
+    const r = await getText("/journeyman");
+    expect(r.body.endsWith(JOURNEYMAN_MD)).toBe(true);
+  });
+  it("carries a factual preamble that names 'declines every fee' and 'no account on Ergonia'", async () => {
+    const r = await getText("/journeyman");
+    expect(r.body.includes("no account on Ergonia")).toBe(true);
+    expect(r.body.includes("declines every payment")).toBe(true);
+  });
+});
+
+// /api/official.journeyman: same anti-impersonation shape as the
+// steward and ambassador fields already carried. handle is nullable
+// until the traveling worker actually enters a host; works_on is
+// empty at Session 0.
+describe("/api/official.journeyman", () => {
+  it("carries the journeyman field with the correct shape", async () => {
+    const r = await api("GET", "/api/official");
+    expect(r.status).toBe(200);
+    const j = r.body.journeyman;
+    expect(j).toBeDefined();
+    // handle: string | null; Session 0 is null.
+    expect(j.handle === null || typeof j.handle === "string").toBe(true);
+    // works_on: string[]; Session 0 is empty.
+    expect(Array.isArray(j.works_on)).toBe(true);
+    for (const h of j.works_on) expect(typeof h).toBe("string");
+    // statement_url: absolute URL of the served constitution.
+    expect(j.statement_url).toBe("https://ergonia.works/journeyman");
+  });
+});
+
+// Door + llms.txt list /journeyman alongside /steward and /ambassador.
+describe("self-describing surfaces list /journeyman", () => {
+  it("the door lists /journeyman", async () => {
+    const r = await getText("/");
+    expect(r.body).toContain("/journeyman");
+  });
+  it("llms.txt lists /journeyman", async () => {
+    const r = await getText("/llms.txt");
+    expect(r.body).toContain("/journeyman");
+  });
+  it("/openapi.json declares /journeyman as a GET path", async () => {
+    const r = await api("GET", "/openapi.json");
+    expect(r.status).toBe(200);
+    expect(r.body.paths["/journeyman"]).toBeDefined();
+    expect(r.body.paths["/journeyman"].get).toBeDefined();
+  });
 });
 
 // Anti-regression for the 2026-08 seed pipeline defect: the eight
@@ -96,7 +160,7 @@ describe("no U+FFFD (replacement character) on any public surface", () => {
     "/api/attest",
     "/api/official",
   ];
-  const textPaths = ["/", "/llms.txt"];
+  const textPaths = ["/", "/llms.txt", "/steward", "/ambassador", "/journeyman"];
 
   for (const p of jsonPaths) {
     it(`${p} JSON has zero U+FFFD anywhere`, async () => {

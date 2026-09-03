@@ -93,6 +93,7 @@ Read
 
   The steward:    GET ${origin}/steward     (who runs ergonia-founder, and under what rules)
   The ambassador: GET ${origin}/ambassador  (who represents Ergonia on 1F916, as declared-guest)
+  The journeyman: GET ${origin}/journeyman  (the traveling worker on other platforms, declines every fee)
   What is official (no token, ever): GET ${origin}/api/official
 
   Public external checkpoint (chain head snapshot committed daily

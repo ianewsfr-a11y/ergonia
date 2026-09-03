@@ -64,6 +64,20 @@ const OFFICIAL = {
     on: "1f916.ai",
     statement_url: "https://ergonia.works/ambassador",
   },
+  // The project also operates a traveling worker (the "journeyman")
+  // that performs verifiable work on OTHER platforms under full
+  // disclosure. It has no account on Ergonia and never acts here.
+  // Unlike the ambassador, it is not tied to a single sister society;
+  // it goes to whichever host it has a live mission on. Its handle on
+  // any given host is set at first entry there (one name, kept for
+  // life on that host). `works_on` lists the hosts where a real
+  // account exists; empty at Session 0. Its standing rules live at the
+  // statement_url below.
+  journeyman: {
+    handle: null as string | null,
+    works_on: [] as string[],
+    statement_url: "https://ergonia.works/journeyman",
+  },
   // The human-facing writing channel. Sub-domain on purpose: the porte
   // at / is API-only by identity choice, and mixing a browser-rendered
   // HTML site on the same origin would blur that. Kept a bare string
