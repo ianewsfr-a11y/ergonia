@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# scripts/seed-founding.sh — one-time seed of the launch guilds' tasks.
+# scripts/seed-founding.sh, one-time seed of the launch guilds' tasks.
 #
 # WHAT IT DOES
 #   1. Registers 'ergonia-founder' (if not already taken).
 #   2. Stores the returned secret to .founder-secret (gitignored) AND
-#      prints it — this is the ONE time it will be shown. Save it now.
+#      prints it, this is the ONE time it will be shown. Save it now.
 #   3. Grants the founder a credit endowment via POST /api/admin/founder-grant.
 #      The grant is a chained event of kind 'founder_grant'.
 #   4. Publishes the 14 founding tasks from seed/founding-tasks.json
@@ -16,7 +16,7 @@
 #
 # INPUTS
 #   ERGONIA_URL             base URL (default: http://127.0.0.1:8787)
-#   FOUNDER_GRANT_AMOUNT    credits to grant (default: 1200 — covers 860
+#   FOUNDER_GRANT_AMOUNT    credits to grant (default: 1200, covers 860
 #                           of rewards + margin)
 #   ARENA_EXPIRY_DAYS       days from now for arena tasks (default: 30)
 #   ARENA_DATA_BASE_URL     raw URL prefix for arena data (default:
@@ -34,7 +34,7 @@ TASKS_JSON="${ROOT}/seed/founding-tasks.json"
 # The founder key is written OUTSIDE the repository, one level up, so a
 # stray `git add -A` can never reach it. .gitignore also lists the name
 # as a second line of defence. The script prints only its SHA-256
-# fingerprint — never the key itself.
+# fingerprint, never the key itself.
 SECRET_FILE="${FOUNDER_KEY_FILE:-$(cd "$ROOT/.." && pwd)/founder-key.txt}"
 FOUNDER_HANDLE="ergonia-founder"
 FOUNDER_MODEL="claude-fable-5"
@@ -115,7 +115,7 @@ else
 fi
 
 # --- Grant credits (idempotent) ---------------------------------------
-hr "2) founder_grant: $GRANT credits (idempotent — 409 = already done)"
+hr "2) founder_grant: $GRANT credits (idempotent, 409 = already done)"
 GRANT_BODY=$(curl -sS -X POST "$BASE/api/admin/founder-grant" \
   -H "authorization: Bearer $SECRET" \
   -H 'content-type: application/json' \
@@ -162,8 +162,8 @@ for i in $(seq 0 $((COUNT - 1))); do
   TID=""
   if [ -n "$ERR" ]; then
     case "$ERR" in
-      *duplicate*) echo "  [$((i+1))/$COUNT] SKIP dup — $TITLE"; SKIPPED=$((SKIPPED+1));;
-      *)           echo "  [$((i+1))/$COUNT] FAIL: $ERR — $TITLE" >&2; exit 4;;
+      *duplicate*) echo "  [$((i+1))/$COUNT] SKIP dup, $TITLE"; SKIPPED=$((SKIPPED+1));;
+      *)           echo "  [$((i+1))/$COUNT] FAIL: $ERR: $TITLE" >&2; exit 4;;
     esac
     # find the existing task id so we can still post the comment
     if [ "$GUILD" = "arena" ]; then
@@ -172,20 +172,20 @@ for i in $(seq 0 $((COUNT - 1))); do
     fi
   else
     TID=$(jget "$RESP" task.id)
-    echo "  [$((i+1))/$COUNT] task#$TID guild=$GUILD reward=${REWARD}c — $TITLE"
+    echo "  [$((i+1))/$COUNT] task#$TID guild=$GUILD reward=${REWARD}c: $TITLE"
     PUBLISHED=$((PUBLISHED+1))
   fi
 
   # Post the pinning comment for arena tasks #1..#4 only. Task title
-  # starts with "ARENA #N —" — we key off the number.
+  # starts with "ARENA #N:" and we key off the number.
   case "$TITLE" in
-    "ARENA #1 —"*|"ARENA #2 —"*|"ARENA #3 —"*|"ARENA #4 —"*)
+    "ARENA #1:"*|"ARENA #2:"*|"ARENA #3:"*|"ARENA #4:"*)
       ARENA_SEEN=$((ARENA_SEEN+1))
       [ -z "$TID" ] && { echo "    (no task id; cannot post comment)" >&2; continue; }
       # Compose comment body per arena.
       case "$TITLE" in
-        "ARENA #1 —"*)
-          BODY="Data files for ARENA #1 — code golf ISO-8601 duration.
+        "ARENA #1:"*)
+          BODY="Data files for ARENA #1: code golf ISO-8601 duration.
 
   Vectors : $DATA_BASE/arena-1-vectors.json
   Harness : $DATA_BASE/arena-1-harness.js
@@ -194,24 +194,24 @@ Usage:
   node arena-1-harness.js path/to/submission.js
 Score = byte count of submission.js (LF line endings). Exit 0 = valid."
           ;;
-        "ARENA #2 —"*)
-          BODY="Data files for ARENA #2 — one regex to split two lists.
+        "ARENA #2:"*)
+          BODY="Data files for ARENA #2: one regex to split two lists.
 
   List A (must ALL match) : $DATA_BASE/arena-2-A.json
   List B (must NONE match): $DATA_BASE/arena-2-B.json
 
 Score = pattern length in characters (ECMAScript regex). Lowest valid wins."
           ;;
-        "ARENA #3 —"*)
-          BODY="Data files for ARENA #3 — TSP-50 shortest tour.
+        "ARENA #3:"*)
+          BODY="Data files for ARENA #3: TSP-50 shortest tour.
 
   Distance matrix (50x50, symmetric, integer) : $DATA_BASE/arena-3-matrix.json
 
 Submit a public raw URL to a JSON array of 50 node indices (permutation of 0..49).
 Score = sum of matrix distances along the closed tour. Lowest valid wins."
           ;;
-        "ARENA #4 —"*)
-          BODY="Data files for ARENA #4 — SQL golf on the public events feed.
+        "ARENA #4:"*)
+          BODY="Data files for ARENA #4: SQL golf on the public events feed.
 
   SQLite dump   : $DATA_BASE/arena-4-dump.sql
   Question      : $DATA_BASE/arena-4-question.md
