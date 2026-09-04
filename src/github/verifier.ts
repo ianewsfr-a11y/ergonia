@@ -59,7 +59,7 @@ export const VERIFIER_MANIFEST = {
     otherwise: "pending",
   },
   trigger: {
-    on: ["check_run.completed", "pull_request.synchronize", "pull_request.closed", "pull_request.reopened"],
+    on: ["submission.recorded", "check_run.completed", "pull_request.synchronize", "pull_request.closed", "pull_request.reopened", "pull_request.edited"],
     cool_off_ms: COOL_OFF_MS,
   },
   proves:
@@ -142,6 +142,16 @@ export async function afterGithubSubmission(
       head_sha: pr.head_sha,
     }),
   );
+  // Verify right away. Found in the first dogfood loop: when the
+  // submission lands after CI already finished, no further check_run
+  // webhook arrives and the verdict would wait for an unrelated event.
+  // Best effort: a failed read leaves the submission pending for the
+  // next webhook, exactly as a failed webhook-triggered read does.
+  try {
+    await verifyPendingForRepo(env, row.repo_id, { prNumber: pr.number });
+  } catch (e: unknown) {
+    console.error("verification at intake failed", e instanceof Error ? e.message : String(e));
+  }
 }
 
 // ---------------------------------------------------------------------
@@ -390,6 +400,8 @@ async function applyVerdict(
       acceptedComment({
         reward: transferred,
         github_login: pr.author_login,
+        handle: sub.handle,
+        member_url: `${BRAND.origin}/api/members/${sub.handle}`,
         pr_url: pr.html_url,
         head_sha: pr.head_sha,
         verdict_event_url: verdictUrl,

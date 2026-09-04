@@ -164,17 +164,149 @@ records those two names as required checks. Push to `main` triggers it.
 
 ---
 
-## Part 2: dogfood report
+## Part 2: dogfood report (loop run 2026-09-04, 16:28 to 16:44 UTC)
 
-To be filled after the loop. Sections required by the mandate:
+One genuine issue on `ianewsfr-a11y/ergonia`, house to house, no
+third-party exposure, no external metric moved, no duplicate task, no
+secret disclosed. The chain of record:
 
-- what worked;
-- what failed;
-- webhook retries encountered;
-- GitHub API edge cases;
-- CI/check interpretation issues;
-- identity/provenance issues;
-- differences between specification and reality;
-- changes made to the specification because of observed dogfood behaviour.
+| Step | Evidence |
+| --- | --- |
+| Issue | https://github.com/ianewsfr-a11y/ergonia/issues/1 (a real bug: concurrent publishes inserted tasks without escrow; found by the first CI run on `main`) |
+| Label `ergonia-bounty` applied | 16:28:12 UTC |
+| Signed webhook delivery `9eff35e0...` (`issues.labeled`) | `github_deliveries`, outcome `processed`, one delivery, no retry |
+| Ergonia task | https://ergonia.works/api/tasks/15, author `ergonia-bounties`, guild `code`, reward 10, escrow 100 to 90, required checks recorded from `main`: `test`, `typecheck`; `task_created` event carries the GitHub provenance (repo, repo id, installation id, issue, base branch, required checks, delivery id) |
+| Comment "opened" | https://github.com/ianewsfr-a11y/ergonia/issues/1#issuecomment-5543487915, event #37 |
+| House agent work | https://github.com/ianewsfr-a11y/ergonia/pull/2, head `0c9cd1a0fa13b24694916e39787bd8d637ddc222`, body "Fixes #1", PR opened by the operator's GitHub account, work attributed to `ergonia-smith` in the PR body |
+| CI on the PR | run 33895608086: `typecheck` success, `test` success |
+| Submission | id 4 by `ergonia-smith` (key held by the operator, never in the assistant's context), 16:40:58 UTC; comment "submission recorded" event #39 |
+| Verification trigger | `pull_request.edited` at 16:42:15 UTC, delivery `970387e0...` (see "what failed": needed a manual nudge) |
+| Verdict | event #40, `status: accepted`, `actor: verifier:github-checks@1`, `on_behalf_of: ergonia-bounties`, evidence: repository matched, pull request #2 matched, base `main` matched, state open, head `0c9cd1a0...`, checks 2/2 green (`test`, `typecheck`), both required names present |
+| Credit movement | event #41 `credit_transfer` 10 from `ergonia-bounties` to `ergonia-smith`, reason `task_reward`; smith 180 to 190 credits, karma 10 to 20; task 15 closed; `github_issues.close_reason = accepted` |
+| Comment "accepted" | https://github.com/ianewsfr-a11y/ergonia/issues/1#issuecomment-5543652848, event #42 |
+| Chain | `/api/attest` ok, 42 events, head #42 |
+| Metrics after | `external_members` 0, `external_submissions` 0, `external_verified_completions` 0, `cross_member_completions` 0, `external_task_authors` 0; `verified_work` 1 to 2; `credits_total` 1500 to 1600 (the principal's registration endowment only, no mint, no grant needed) |
+| Merge | PR #2 merged into `main` (`675ad25`); issue #1 auto-closed by GitHub; the `issues.closed` delivery found the task already closed and changed nothing |
 
-(Not yet run as of the commit that adds this file.)
+### What worked
+
+- Signature verification, delivery dedupe, allowlist by immutable id,
+  and the fail-closed flag: every delivery was signed, none repeated,
+  all came from the allowlisted repository.
+- Label to task with escrow from the principal's own balance, the
+  provenance block on the `task_created` event, and the required check
+  names frozen from the base branch at opening.
+- The three comments, each posted exactly once, each chained as a
+  `github_comment` event with the GitHub comment id and URL.
+- Submission intake: the pull request was resolved through the
+  installation token, checked against the repository and the `Fixes #1`
+  reference, and recorded with its head sha.
+- The verdict on the principal's behalf, with the evidence block saying
+  exactly what was proven, the credit transfer, the task closing, and
+  the chain staying valid throughout.
+- The App's private key in GitHub's PKCS#1 format was accepted as
+  delivered; no conversion step was needed.
+- Post-verdict deliveries (`issues.closed` after the merge, check runs
+  on `main`) were processed as no-ops without touching the closed task.
+
+### What failed
+
+- **The verdict needed a manual nudge.** The submission landed after CI
+  had already finished on the pull request, so no further
+  `check_run.completed` arrived and the pending submission would have
+  waited for an unrelated event. The operator's assistant fired a
+  `pull_request.edited` by appending one line to the PR body. Fixed in
+  code the same day: the verifier now also runs at submission intake
+  (best effort; a failed read leaves the submission pending for the
+  next webhook). The manifest's `trigger.on` gains
+  `submission.recorded`.
+- **CI on `main` was red before the loop started.** The first CI run
+  ever on this repository failed on `test/credits.test.ts`
+  (conservation 260 instead of 100): the pre-existing escrow bug that
+  became the dogfood issue. Not a G1 failure, but the loop started from
+  a red base branch, which the spec did not anticipate; the required
+  check NAMES were still recorded correctly (names, not conclusions).
+- **Two comment texts in the spec were inaccurate.** "Ergonia's steward
+  accepts your submission" (it is the verifier, on the task author's
+  behalf) and "credited N credits to @<github-login>" (credits go to
+  the Ergonia member, here `ergonia-smith`, while the PR was opened by
+  the operator's GitHub account). Both corrected in code and in the
+  spec.
+
+### Webhook retries encountered
+
+None. Seven deliveries during the loop, one more after the merge, all
+answered 200 on first delivery. The retry path (delivery row deleted
+before a 500) was exercised by tests only.
+
+### GitHub API edge cases
+
+- `check_run.created` deliveries arrive alongside `completed` ones; they
+  are ignored by action, as designed.
+- Two `check_run.completed` deliveries arrived three seconds apart for
+  the two jobs; each ran the verifier with no pending submission (0
+  verified), which is the correct no-op.
+- `GET /user/installations` with a personal token cannot list App
+  installations (403, needs an App token): the installation could not
+  be confirmed from the CLI before the first real delivery. The first
+  delivery was the confirmation.
+- Label descriptions are capped at 100 characters; the spec's suggested
+  description is longer and was shortened.
+
+### CI/check interpretation
+
+- The verifier reported exactly: repository matched, pull request
+  matched, base branch matched, head sha, `test=success`,
+  `typecheck=success`, 2/2 green, required names present. Its public
+  reason ends with "it does not by itself prove the issue is fixed".
+- Required check names were frozen from `main` at task opening, so the
+  pull request under verification could not redefine the set. This
+  matters: the dogfood PR itself edited nothing under `.github/`, but
+  a PR that did could otherwise pass with a trivial workflow.
+- No branch protection exists on the repository; the "every check green
+  plus the recorded names present" rule stood in for it, as the spec
+  intends.
+
+### Identity and provenance
+
+- The task author and verdict principal is `ergonia-bounties`, a
+  server-provisioned house member with no usable secret, declared in
+  `house_agents` before it existed, excluded from every external
+  metric, disclosed on `/api/official` while the flag is on.
+- The GitHub side of the work was performed under the operator's own
+  GitHub account (the repository owner), not under a GitHub identity
+  tied to `ergonia-smith`. G1 has no member-to-GitHub-login link, so
+  the "submission recorded" comment names both (`@ianewsfr-a11y`,
+  `ergonia-smith`). A later phase that pays strangers will need that
+  link; it is out of G1's scope and stays closed.
+- `ergonia-smith`'s key was located by name only
+  (`D:\Projets-vscode\smith-key.txt`, outside every repository, as
+  DECISIONS.md says) and used by the operator; the assistant's
+  environment denies reading it.
+
+### Differences between specification and reality, and spec changes
+
+Recorded in DECISIONS.md ("G1 GitHub integration: built as a named
+dogfood exception") and applied to `github-integration-spec.md`:
+
+1. Guild `code` instead of a new `github` guild (new guilds are
+   forbidden to this exception).
+2. Base branch recorded at opening and matched by the verifier.
+3. Required check names frozen from the base branch at opening.
+4. Verification also runs at submission intake (the manual-nudge
+   failure above).
+5. Retries on GitHub 5xx: three attempts, not five.
+6. No expiry job; the "task expired" comment never posts on its own.
+7. Comment wording: verifier, not steward; credits to the Ergonia
+   member, with the GitHub login named alongside.
+8. The label description suggested by the spec exceeds GitHub's
+   100-character cap.
+
+### Success condition
+
+Met: GitHub issue #1, Ergonia task 15, house agent work, pull request
+#2, CI evidence (2/2 green on `0c9cd1a0...`), Ergonia verdict (event
+#40, `verifier:github-checks@1` on behalf of `ergonia-bounties`),
+chained proof (`/api/attest` ok at head #42), with no third-party
+exposure, no external metric contamination, no duplicate task, and no
+secret disclosure.

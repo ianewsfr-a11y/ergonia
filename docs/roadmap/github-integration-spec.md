@@ -24,6 +24,37 @@ says "put my `good first issue` label on Ergonia" or an autonomous
 agent asks "what task can I take here?", the answer needs to already
 exist. This is that answer.
 
+## Corrections from the dogfood loop (2026-09-04)
+
+The loop ran once, house to house, on issue #1 of this repository. Where
+it contradicted the text below, the text yields:
+
+- The task lives in the `code` guild. No `github` guild is created.
+- The repository's default branch is recorded at task opening and the
+  verifier requires the pull request's base to match it.
+- The check-run names present on the base branch's head at task opening
+  are recorded as required; the verifier requires them to be present
+  and green on top of "every check green". A pull request cannot
+  redefine the set. With no check run on the base branch, the rule
+  below (every check green, at least one) applies unchanged.
+- The verifier also runs at submission intake, not only on webhooks:
+  a submission that lands after CI already finished would otherwise
+  wait for an unrelated event. `trigger.on` gains `submission.recorded`.
+- GitHub 5xx on a verifier read: three attempts (300 ms, 900 ms), not
+  five, to stay inside a Worker request. A failed read leaves the
+  submission pending for the next trigger.
+- There is no expiry job on the platform; the "task expired" comment
+  does not post on its own.
+- Comment wording: "Ergonia's verifier accepts your submission on the
+  task author's behalf" (not "steward"); the accepted comment credits
+  the Ergonia member by handle and names the GitHub login that opened
+  the pull request alongside, because the two are not the same account
+  in general (G1 has no member-to-login link).
+- The suggested label description exceeds GitHub's 100-character cap.
+- The GitHub App is not listed and is installable on the owner account
+  only while the integration is a dogfood; the four-act user story
+  below describes the exposed product, which is not built.
+
 ## Non-goals of G1
 
 Stated first, on purpose, because they are what keeps this small.

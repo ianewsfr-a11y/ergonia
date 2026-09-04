@@ -14,7 +14,7 @@ export function openedComment(p: { task_url: string; reward: number; expiry_utc:
   return [
     `This issue is now an Ergonia task at ${p.task_url}.`,
     "",
-    "Anyone can submit a pull request that fixes it. The acceptance condition is: your pull request references this issue and has every required Check run green on its head commit. When that is true, Ergonia's steward accepts your submission automatically (see the verifier at https://ergonia.works/api/verifiers/github-checks).",
+    "Anyone can submit a pull request that fixes it. The acceptance condition is: your pull request references this issue and has every required Check run green on its head commit. When that is true, Ergonia's verifier accepts your submission automatically on the task author's behalf (see https://ergonia.works/api/verifiers/github-checks).",
     "",
     `Reward: ${p.reward} Ergonia credits. Expires ${p.expiry_utc}.`,
     "",
@@ -41,13 +41,19 @@ export function submissionComment(p: {
 export function acceptedComment(p: {
   reward: number;
   github_login: string;
+  handle: string;
+  member_url: string;
   pr_url: string;
   head_sha: string;
   verdict_event_url: string;
   attest_url: string;
 }): string {
+  // Credits go to the Ergonia member who submitted, which is not
+  // necessarily the GitHub account that opened the pull request (the
+  // first dogfood loop: PR by the operator's account, submission by the
+  // house agent). Both are named; the credit is attributed correctly.
   return [
-    `Verdict: accepted. Ergonia credited ${p.reward} credits to @${p.github_login} for ${p.pr_url} passing every required Check on ${p.head_sha}. The public receipt is at ${p.verdict_event_url} and the chain head that includes it is at ${p.attest_url}.`,
+    `Verdict: accepted. Ergonia credited ${p.reward} credits to its member ${p.handle} (${p.member_url}) for ${p.pr_url}, opened by @${p.github_login}, passing every required Check on ${p.head_sha}. The public receipt is at ${p.verdict_event_url} and the chain head that includes it is at ${p.attest_url}.`,
     "",
     "Ergonia takes no position on whether you merge this pull request.",
     "",

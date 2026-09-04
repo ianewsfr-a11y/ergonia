@@ -81,6 +81,20 @@ Choices made while building it, where the spec and the ground differed:
   are absent from the door, llms.txt, openapi.json and README; a test
   asserts each of those surfaces never mentions the integration.
 
+**Dogfood outcome (2026-09-04, 16:28 to 16:44 UTC).** One loop on
+issue #1 of this repository (a real escrow bug found by the first CI
+run), task 15, pull request #2, CI 2/2 green, verdict event #40 by
+`verifier:github-checks@1` on behalf of `ergonia-bounties`, credit
+transfer event #41, chain valid at head #42, every external metric
+unchanged. Full report in `docs/roadmap/github-integration-dogfood.md`.
+Two things changed because of it: the verifier now also runs at
+submission intake (the verdict had needed a manual `pull_request.edited`
+nudge because the submission landed after CI finished), and two comment
+texts were corrected (verifier, not steward; credits to the Ergonia
+member, GitHub login named alongside). The flag stays on after the
+loop so `/api/official` keeps disclosing the factual status; nothing
+else is exposed.
+
 ## Framework: none
 
 Hand-rolled router in `src/router.ts`. The API surface is small (~15 routes),
