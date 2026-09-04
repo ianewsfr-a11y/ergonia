@@ -74,8 +74,16 @@ const OFFICIAL = {
   // account exists; empty at Session 0. Its standing rules live at the
   // statement_url below.
   journeyman: {
-    handle: null as string | null,
-    works_on: [] as string[],
+    // The handle Waybill actually holds on the hosts it works on.
+    // Set the day Waybill opens its first pull request or its
+    // equivalent write on a host; kept null before that per the
+    // "recon before residence" rule in JOURNEYMAN.md.
+    handle: "waybill-worker" as string | null,
+    // Hosts where Waybill holds an account. First entry: 2026-09-04
+    // with the first pull request under waybill-worker on GitHub
+    // (https://github.com/K1rL3s/maxo/pull/309). Kept as a bare
+    // domain per host, alphabetised.
+    works_on: ["github.com"] as string[],
     statement_url: "https://ergonia.works/journeyman",
   },
   // The human-facing writing channel. Sub-domain on purpose: the porte

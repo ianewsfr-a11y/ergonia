@@ -106,11 +106,17 @@ describe("/api/official.journeyman", () => {
     expect(r.status).toBe(200);
     const j = r.body.journeyman;
     expect(j).toBeDefined();
-    // handle: string | null; Session 0 is null.
-    expect(j.handle === null || typeof j.handle === "string").toBe(true);
-    // works_on: string[]; Session 0 is empty.
+    // handle: string | null. Now that Waybill holds an account on at
+    // least one host, the handle is the name it uses there.
+    expect(typeof j.handle).toBe("string");
+    expect(j.handle).toBe("waybill-worker");
+    // works_on: string[], one bare domain per host, alphabetised.
     expect(Array.isArray(j.works_on)).toBe(true);
     for (const h of j.works_on) expect(typeof h).toBe("string");
+    expect(j.works_on).toContain("github.com");
+    // Consistency: if works_on is non-empty, the handle must be set
+    // too (a host account without a name would be an unnamed account).
+    if (j.works_on.length > 0) expect(typeof j.handle).toBe("string");
     // statement_url: absolute URL of the served constitution.
     expect(j.statement_url).toBe("https://ergonia.works/journeyman");
   });
