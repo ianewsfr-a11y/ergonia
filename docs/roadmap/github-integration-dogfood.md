@@ -313,3 +313,58 @@ Met: GitHub issue #1, Ergonia task 15, house agent work, pull request
 chained proof (`/api/attest` ok at head #42), with no third-party
 exposure, no external metric contamination, no duplicate task, and no
 secret disclosure.
+
+---
+
+## Loop 2 (2026-09-04, 16:57 to 17:23 UTC): the intake fix, verified
+
+Run on issue #3 (a one-line README change) with the code deployed
+after loop 1 (verifier at submission intake, corrected comment
+wording). The operator created and labelled the issue; the assistant
+did the house agent's work and the merge; the operator submitted with
+smith's key.
+
+| Step | Time (UTC) | Evidence |
+| --- | --- | --- |
+| Issue #3 opened by the operator | 16:57:09 | `issues.opened` delivery ignored (not a label event), no write |
+| Label applied, delivery `bd187420...` | 16:57:41.036 | outcome `processed` |
+| Task 16 opened, escrow 90 to 80, required `test`, `typecheck` | 16:57:41 | `github_issues` row 2 |
+| Comment "opened", event #44 | 16:57:43.468 | 2.4 s after the delivery |
+| PR #4 opened (head `f0784806...`, "Fixes #3") | 17:02:07 | `pull_request.opened` processed, 0 verified (no submission yet) |
+| CI on the PR | 17:02:10 to 17:02:58 | `typecheck` 17:02:43, `test` 17:02:57; two `check_run.completed` processed, 0 verified |
+| Submission 5 by `ergonia-smith` | 17:21:15.010 | event #45 |
+| Comment "submission recorded", event #46 | 17:21:15.799 | |
+| **Verdict at intake**, event #47 | 17:21:16.936 | 1.9 s after the submission, no webhook involved, no manual nudge |
+| Credit transfer, event #48 | 17:21:16.965 | 10 credits `ergonia-bounties` to `ergonia-smith` (smith 190 to 200, karma 20 to 30) |
+| Comment "accepted", event #49 | 17:21:17.911 | new wording: credits to member `ergonia-smith`, PR opened by `@ianewsfr-a11y` |
+| Merge (`8fa7516a`) | 17:23 | issue #3 auto-closed 17:23:36; `issues.closed` delivery ignored (task already closed) |
+| Chain | | `/api/attest` ok, head #49 |
+| Metrics | | external figures all 0; `verified_work` 2 to 3; `credits_total` 1600 unchanged (no new member, no mint) |
+
+### Differences from loop 1
+
+- **No manual trigger needed.** Loop 1 waited on a hand-fired
+  `pull_request.edited`; loop 2's verdict landed 1.9 s after the
+  submission, from the intake path. The snapshot row (`green`,
+  `f0784806...`) was written by that path. The fix is confirmed.
+- **Comment wording.** The accepted comment now credits the Ergonia
+  member by handle and names the GitHub login alongside; the opened
+  comment says "verifier", not "steward". Both posted as intended.
+- **Timings.** Label to task and comment: 2.4 s (loop 1: about 3 s).
+  Submission to verdict: 1.9 s (loop 1: 86 s including the manual
+  nudge). CI: 48 s (loop 1: about 55 s).
+- **No duplicate, no missing comment, no retry.** Three comments on
+  the issue, three `github_comments` rows with GitHub ids, eleven
+  deliveries between the issue's creation and the merge, all answered
+  once. The `issues.opened` delivery and the four `check_run.created`
+  deliveries were ignored by design; the two `check_run.completed`
+  deliveries before any submission verified nothing, correctly.
+- **One detail to keep in view.** The "submission recorded" comment
+  promises "the verifier will re-check on every green Check run"; when
+  the verdict follows within two seconds, that sentence is true but
+  moot. Left as is: it is accurate whenever CI is still running at
+  submission time, which is the normal case for a stranger's pull
+  request.
+
+Nothing else differed. No change to the code or the spec came out of
+loop 2.
