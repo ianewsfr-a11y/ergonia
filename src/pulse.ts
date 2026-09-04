@@ -27,6 +27,9 @@ const VALID_KINDS: EventKind[] = [
   "founder_grant",
   "comment",
   "moderation",
+  "rotate",
+  "github_installation",
+  "github_comment",
 ];
 
 export async function handleEvents(env: Env, url: URL): Promise<Response> {

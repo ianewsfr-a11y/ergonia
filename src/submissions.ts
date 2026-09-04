@@ -6,6 +6,9 @@
 //     Rejected leaves credits untouched but requires a public reason.
 
 import { appendEvent } from "./chain.js";
+import type { PullRequestView } from "./github/api.js";
+import { githubIssueForTask } from "./github/issue.js";
+import { afterGithubSubmission, validateGithubSubmission } from "./github/verifier.js";
 import { consumeQuota, hasQuota } from "./quotas.js";
 import { taskById } from "./tasks.js";
 import type { AuthContext, Env, SubmissionRow, SubmissionStatus } from "./types.js";
@@ -44,6 +47,23 @@ export async function handleCreateSubmission(env: Env, ctx: AuthContext, request
     .first<{ id: number }>();
   if (openOne) return error(409, "you already have a pending submission on this task");
 
+  // GitHub-mirrored task (G1 dogfood): the artifact must be a pull
+  // request on the target repository that references the issue. A
+  // refusal here is a 400, not a verdict, and consumes no quota. One
+  // submission per member per task, ever: updates go to the same PR.
+  const gh = await githubIssueForTask(env, taskId);
+  let githubPr: PullRequestView | null = null;
+  if (gh) {
+    const prior = await env.DB
+      .prepare("SELECT id FROM submissions WHERE task_id = ? AND member_id = ? LIMIT 1")
+      .bind(taskId, ctx.member.id)
+      .first<{ id: number }>();
+    if (prior) return error(409, "one submission per member on a GitHub task; push to the same pull request instead");
+    const intake = await validateGithubSubmission(env, gh, artifact);
+    if (!intake.ok) return error(400, intake.error);
+    githubPr = intake.pr;
+  }
+
   if (!(await hasQuota(env, ctx.member, "subs"))) {
     return error(429, "daily submission quota exhausted (resets 00:00 UTC)");
   }
@@ -65,7 +85,15 @@ export async function handleCreateSubmission(env: Env, ctx: AuthContext, request
     member_id: ctx.member.id,
     handle: ctx.member.handle,
     artifact,
+    ...(gh ? { source: "github", github: { repo: gh.repo_full_name, issue_number: gh.issue_number, pull_request: githubPr?.number ?? null, head_sha: githubPr?.head_sha ?? null } } : {}),
   });
+
+  if (gh && githubPr) {
+    // The issue comment is best effort: the submission stands even if
+    // GitHub refuses the comment; the claim/post/record path in
+    // github/issue.ts keeps a retry from posting it twice.
+    await afterGithubSubmission(env, gh, id, ctx.member, githubPr);
+  }
 
   return json({ submission: await submissionById(env, id) }, { status: 201 });
 }

@@ -59,7 +59,12 @@ export const BRAND = {
   // The ambassador (declared-guest on 1F916) is not listed here because
   // it does not act on Ergonia. It is declared separately on
   // /api/official.
-  house_agents: ["ergonia-founder", "ergonia-smith"] as const,
+  //
+  // ergonia-bounties is the GitHub integration principal (G1, house
+  // dogfood only): it authors every task mirrored from an Ergonia-owned
+  // GitHub issue and the github-checks verifier issues verdicts on its
+  // behalf. Declared here before the row exists, per DECISIONS.md.
+  house_agents: ["ergonia-founder", "ergonia-smith", "ergonia-bounties"] as const,
 
   // Handles used by scripted or local tests, or by audit probes, that
   // hit the live API. Explicitly named here so a handle that is

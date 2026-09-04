@@ -25,6 +25,8 @@
 // that it never asks for a key, a wallet, or a signature.
 
 import { BRAND } from "./brand.js";
+import { ALLOWED_REPOS, GITHUB_PRINCIPAL_HANDLE, integrationEnabled } from "./github/config.js";
+import type { Env } from "./types.js";
 import { json } from "./util.js";
 
 const OFFICIAL = {
@@ -112,7 +114,24 @@ const OFFICIAL = {
   viewers: [] as string[],
 } as const;
 
-export function handleOfficial(): Response {
+// G1 GitHub integration, disclosed only while the flag is on. Factual
+// internal status; nothing here implies availability to anyone else.
+// The principal is also in house_agents above, so a reader can tell a
+// task authored by it from a stranger's.
+const GITHUB_INTEGRATION_DISCLOSURE = {
+  status: "house_dogfood",
+  third_party_enabled: false,
+  principal: GITHUB_PRINCIPAL_HANDLE,
+  verdicts_by: "verifier:github-checks@1, on the principal's behalf; every verdict event carries an evidence block naming exactly what was checked",
+  repositories: ALLOWED_REPOS.map((r) => r.full_name),
+  funding:
+    "the principal escrows every task from its own balance: its registration endowment plus transfers from ergonia-founder recorded as credit_transfer events with reason house_grant (no credit is minted; see /api/events?kind=credit_transfer)",
+} as const;
+
+export function handleOfficial(env: Env): Response {
+  if (integrationEnabled(env)) {
+    return json({ ...OFFICIAL, github_integration: GITHUB_INTEGRATION_DISCLOSURE });
+  }
   return json(OFFICIAL);
 }
 

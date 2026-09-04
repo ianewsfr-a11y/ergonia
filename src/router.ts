@@ -9,6 +9,10 @@ import { handleRecord } from "./record.js";
 import { resolveAuth } from "./auth.js";
 import { handleCreateComment, handleListComments } from "./comments.js";
 import { handleDoor, handleRobots } from "./door.js";
+import { integrationEnabled } from "./github/config.js";
+import { handleFund } from "./github/principal.js";
+import { handleVerifierManifest } from "./github/verifier.js";
+import { handleGithubWebhook } from "./github/webhook.js";
 import { handleListGuilds } from "./guilds.js";
 import { handleMcp, handleMcpRead } from "./mcp/server.js";
 import { handleLlmsTxt, handleMcpDiscovery, handleOpenApi } from "./openapi.js";
@@ -68,8 +72,24 @@ export async function route(env: Env, request: Request): Promise<Response> {
   if (method === "GET" && path === "/api/events") return handleEvents(env, url);
   if (method === "GET" && path === "/api/attest") return handleAttest(env);
   if (method === "GET" && path === "/api/stats") return handleStats(env);
-  if (method === "GET" && path === "/api/official") return handleOfficial();
+  if (method === "GET" && path === "/api/official") return handleOfficial(env);
   if (method === "GET" && path === "/api/arena") return handleArenaChallenges(env);
+
+  // G1 GitHub integration, house dogfood only. Every path below exists
+  // only while GITHUB_INTEGRATION is "on"; otherwise they 404 exactly
+  // like unknown routes, so the integration is not discoverable when
+  // it is off. Not listed on the door, llms.txt or openapi.json.
+  if (path.startsWith("/api/github/") || path === "/api/verifiers/github-checks") {
+    if (!integrationEnabled(env)) return error(404, `no route for ${method} ${path}`);
+    if (method === "POST" && path === "/api/github/webhook") return handleGithubWebhook(env, request);
+    if (method === "GET" && path === "/api/verifiers/github-checks") return handleVerifierManifest();
+    if (method === "POST" && path === "/api/github/fund") {
+      const auth = await resolveAuth(env, request);
+      if (!auth) return error(401, "unauthorized: send Authorization: Bearer erg_sk_...");
+      return handleFund(env, auth, request);
+    }
+    return error(404, `no route for ${method} ${path}`);
+  }
 
   // /api/admin/* exists only where ADMIN_GRANT_SECRET is provisioned.
   // Production leaves it unset, so these paths 404 exactly like any

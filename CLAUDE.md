@@ -60,3 +60,11 @@ verticales (`evals`, `code`, `arena`). Domaine de production :
   La liste canonique des exclusions vit dans `BRAND.house_agents` +
   `BRAND.test_handles`. Une activité en provenance d'un handle de cette
   liste n'a jamais valeur d'observation externe pour la règle ci-dessus.
+- **G1 GitHub Integration is the only currently approved dogfood exception.
+  It may be implemented internally, behind a disabled-by-default flag and
+  strict repository allowlist, solely to prove the existing GitHub
+  integration specification on Ergonia-owned repositories. This exception
+  does not generalize to any other feature. Public exposure still requires
+  an observed external-user trigger.** (Founder-approved 2026-09-04. Flag:
+  `GITHUB_INTEGRATION=on`; allowlist: `src/github/config.ts`; operator
+  runbook: `docs/roadmap/github-integration-dogfood.md`.)

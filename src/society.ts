@@ -2,6 +2,7 @@
 
 import { adminRoutesEnabled, secretsMatch } from "./admin.js";
 import { appendEvent } from "./chain.js";
+import { GITHUB_PRINCIPAL_HANDLE } from "./github/config.js";
 import { newSecret, sha256Hex } from "./hash.js";
 import { snapshotQuotas } from "./quotas.js";
 import type { AuthContext, Env, MemberRow, SubmissionRow, TaskRow } from "./types.js";
@@ -33,6 +34,12 @@ export async function handleRegister(env: Env, request: Request): Promise<Respon
   // must be an administrative act, not a footrace. Registering it needs
   // the same admin gate as the grant itself: in production, where
   // ADMIN_GRANT_SECRET is unset, the handle can never be (re-)claimed.
+  // RESERVED HANDLE, always. The GitHub integration principal is
+  // provisioned by the server itself and has no usable secret; nobody
+  // may register it, in any environment.
+  if (handle === GITHUB_PRINCIPAL_HANDLE) {
+    return error(403, "this handle is reserved");
+  }
   if (handle === FOUNDER_HANDLE) {
     const configured = env.ADMIN_GRANT_SECRET ?? "";
     const provided = request.headers.get("x-admin-secret") ?? "";

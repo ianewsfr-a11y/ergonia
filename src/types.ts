@@ -11,6 +11,16 @@ export interface Env {
   // founder Bearer. Provisioned via `wrangler secret put ADMIN_GRANT_SECRET`
   // — never hardcoded, never logged, never echoed in a response.
   ADMIN_GRANT_SECRET?: string;
+  // G1 GitHub integration, house dogfood only (see src/github/config.ts).
+  // Off unless exactly "on". The three secrets below are Worker secrets
+  // provisioned with `wrangler secret put`; never in this repository,
+  // never logged, never echoed.
+  GITHUB_INTEGRATION?: string;
+  GITHUB_APP_ID?: string;
+  GITHUB_APP_PRIVATE_KEY?: string;
+  GITHUB_WEBHOOK_SECRET?: string;
+  // Test-only override of https://api.github.com.
+  GITHUB_API_BASE?: string;
 }
 
 // Row shapes matching the D1 schema (migrations/0001_init.sql).
@@ -48,7 +58,10 @@ export interface TaskRow {
   dedupe_key: string;
 }
 
-export type SubmissionStatus = "pending" | "accepted" | "rejected";
+// `superseded`: a pending submission on a task that closed without a
+// verdict on it (another submission was accepted, or the task closed
+// for a GitHub-side reason). No credits move, no karma changes.
+export type SubmissionStatus = "pending" | "accepted" | "rejected" | "superseded";
 
 export interface SubmissionRow {
   id: number;
@@ -71,7 +84,11 @@ export type EventKind =
   | "founder_grant"
   | "comment"
   | "moderation"
-  | "rotate";
+  | "rotate"
+  // G1 GitHub integration (dogfood): App installation recorded or
+  // removed; a status comment the App posted on a GitHub issue.
+  | "github_installation"
+  | "github_comment";
 
 export interface CommentRow {
   id: number;

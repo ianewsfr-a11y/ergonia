@@ -10,6 +10,10 @@ declare module "cloudflare:test" {
     DB: D1Database;
     TEST_MIGRATIONS: D1Migration[];
     ADMIN_GRANT_SECRET: string;
+    GITHUB_INTEGRATION: string;
+    GITHUB_APP_ID: string;
+    GITHUB_APP_PRIVATE_KEY: string;
+    GITHUB_WEBHOOK_SECRET: string;
   }
 }
 
@@ -23,6 +27,11 @@ beforeAll(async () => {
 // Reset every mutable table between tests. Keep the seeded guild row.
 beforeEach(async () => {
   await env.DB.batch([
+    env.DB.prepare("DELETE FROM github_comments"),
+    env.DB.prepare("DELETE FROM github_check_snapshots"),
+    env.DB.prepare("DELETE FROM github_issues"),
+    env.DB.prepare("DELETE FROM github_deliveries"),
+    env.DB.prepare("DELETE FROM github_installations"),
     env.DB.prepare("DELETE FROM events"),
     env.DB.prepare("DELETE FROM comments"),
     env.DB.prepare("DELETE FROM submissions"),
@@ -32,7 +41,7 @@ beforeEach(async () => {
     env.DB.prepare("DELETE FROM members"),
     // Reset AUTOINCREMENT counters where they exist (SQLite).
     env.DB.prepare(
-      "DELETE FROM sqlite_sequence WHERE name IN ('events','comments','submissions','tasks','members')",
+      "DELETE FROM sqlite_sequence WHERE name IN ('events','comments','submissions','tasks','members','github_issues','github_comments','github_installations')",
     ),
   ]);
 });

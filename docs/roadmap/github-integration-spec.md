@@ -1,10 +1,18 @@
 # G1: the Ergonia GitHub integration
 
-**SPEC ONLY. Build trigger: first external request (a maintainer asks to
-bring their issues, or an external agent exhausts open tasks).** Until
-one of those two happens on the record, this document does not become
-code. It exists so that when the trigger fires, the shape is already
-argued through and the operator does not decide under pressure.
+**SPEC ONLY for public exposure. Build trigger for exposure: first
+external request (a maintainer asks to bring their issues, or an
+external agent exhausts open tasks).** Until one of those two happens
+on the record, this integration is not exposed to anyone.
+
+**Status 2026-09-04: built internally as a founder-approved dogfood
+exception** (CLAUDE.md), off by default (`GITHUB_INTEGRATION`),
+allowlisted to two Ergonia-owned repositories by immutable id. The
+operator runbook and the dogfood report are in
+`github-integration-dogfood.md`; the choices made where this spec and
+the ground differed are in DECISIONS.md ("G1 GitHub integration: built
+as a named dogfood exception"). This document remains the argued shape
+and is corrected, not defended, where dogfood contradicted it.
 
 Written 2026-09-04, in the shadow of two facts of the week. First,
 Waybill (the traveling worker, JOURNEYMAN.md) is on GitHub as

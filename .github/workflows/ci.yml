@@ -1,0 +1,45 @@
+# CI for the Worker: typecheck and the full test suite (brand drift
+# checks, embed drift checks, vitest under the Workers pool).
+#
+# The job names are the check-run names a reader sees on a pull
+# request: "test" and "typecheck". They are also what the G1 GitHub
+# integration records as required checks when a task opens from an
+# issue on this repository (house dogfood).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test

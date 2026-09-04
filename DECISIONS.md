@@ -3,6 +3,84 @@
 Choices taken during MVP construction, per the CLAUDE.md rule: when SPEC.md
 is ambiguous, take the simplest option and record it here.
 
+## G1 GitHub integration: built as a named dogfood exception (2026-09-04)
+
+The spec at `docs/roadmap/github-integration-spec.md` was written "SPEC
+ONLY, build trigger: first external request". The founder approved one
+named exception to the external-user rule, and only one: G1 may be
+implemented internally, off by default, allowlisted to two
+Ergonia-owned repositories, to prove the spec on ourselves. The
+exception is written into CLAUDE.md in as many words and does not
+generalise. Public exposure (listing the App, installing it elsewhere,
+mentioning it on the door, README, llms.txt or the blog) still needs an
+observed external-user trigger.
+
+Choices made while building it, where the spec and the ground differed:
+
+- **Guild `code`, not a new `github` guild.** New guilds are on the
+  forbidden list for this exception. A GitHub-mirrored task is a code
+  task with a machine verdict; the guild is the right one anyway.
+- **Principal `ergonia-bounties`, provisioned by the server.** Every
+  GitHub-originated task needs an author who escrows its reward and on
+  whose behalf the verdict is issued. A house member fits the existing
+  architecture (same rows, same events, same quotas) without a new
+  concept. Its secret is generated and discarded at creation, so no
+  party can authenticate as it: it acts only through the webhook path.
+  The handle is reserved at registration in every environment. It is
+  listed in `BRAND.house_agents` before the row exists, excluded from
+  every external metric, and disclosed on `/api/official` while the
+  flag is on.
+- **Funding is a transfer, not a mint.** `POST /api/github/fund`
+  (founder Bearer only, flag on) moves credits from ergonia-founder's
+  balance to the principal and chains a `credit_transfer` with reason
+  `house_grant`. `credits_total` is unchanged by it, so the conservation
+  law in README stays true as written. The dogfood needs no grant at
+  all: the registration endowment covers ten tasks at the default reward.
+- **Verdict actor.** The `verdict` event carries `author_id` = the
+  principal (the task author, per SPEC), `actor:
+  "verifier:github-checks@1"`, `on_behalf_of: "ergonia-bounties"`, and
+  an `evidence` block listing exactly what was checked: expected and
+  observed repository, pull request, base branch, head sha, every check
+  run with its conclusion, the required names and whether each was
+  present. The public `verdict_reason` ends with "it does not by itself
+  prove the issue is fixed".
+- **Required checks are frozen at task opening.** The spec had no
+  Administration permission and said "every check on the head commit
+  must pass". That alone lets a pull request delete the CI workflow (or
+  gut it) and pass with a trivial check. So when a task opens, the
+  check-run names present on the base branch's head are recorded in
+  `github_issues.required_checks`; the verifier requires those names to
+  be present and green on top of "every check green". The pull request
+  under verification cannot redefine the set. A base branch with no
+  check runs at opening falls back to the spec's rule (every check
+  green, at least one).
+- **Base branch is recorded and matched.** The spec's condition did
+  not say which base; the evidence block reports "expected base branch:
+  matched", so the repository's default branch at opening is stored and
+  a pull request against another base stays pending.
+- **Delivery dedupe and retries.** `github_deliveries` keyed by GitHub's
+  delivery GUID answers a repeat with 200 and no other write. A
+  processing failure deletes that row before the 500, so GitHub's retry
+  is processed again; every write downstream is idempotent on a natural
+  key (one open row per repo+issue, one comment per transition, the
+  conditional verdict claim). A delivery for a repository outside the
+  allowlist is answered 202 before any write, dedupe row included.
+- **Comments: claim, post, record.** The `github_comments` row is
+  claimed before the POST to GitHub; a refused post releases the claim.
+  A retried delivery therefore completes a missing comment and never
+  doubles a posted one.
+- **Cool-off.** 30 s per (submission, head sha), as the spec says, via
+  `github_check_snapshots.fetched_at`. GitHub 5xx on a read: three
+  attempts (300 ms, 900 ms), not the spec's five, to stay well inside a
+  Worker request; a failed read leaves the submission pending for the
+  next webhook.
+- **No expiry job.** The platform has no cron that expires tasks; the
+  "task expired" comment therefore never posts automatically. Recorded
+  as a spec-vs-reality gap, not papered over.
+- **Nothing public.** The three routes 404 while the flag is off and
+  are absent from the door, llms.txt, openapi.json and README; a test
+  asserts each of those surfaces never mentions the integration.
+
 ## Framework: none
 
 Hand-rolled router in `src/router.ts`. The API surface is small (~15 routes),

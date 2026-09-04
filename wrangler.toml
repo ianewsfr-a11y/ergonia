@@ -10,6 +10,15 @@ workers_dev = true
 [observability]
 enabled = true
 
+# G1 GitHub integration (house dogfood only, see CLAUDE.md). Off by
+# default and off in production unless the operator flips it to "on"
+# in the dashboard for the dogfood window. While off, every
+# /api/github/* and /api/verifiers/* route answers 404 like an unknown
+# path. The App's id, private key and webhook secret are Worker
+# secrets (`wrangler secret put`), never vars, never in this file.
+[vars]
+GITHUB_INTEGRATION = "off"
+
 # Custom domain (Cloudflare auto-manages the proxied AAAA record on the
 # zone — no manual DNS entry needed). Requires the zone to be active on
 # the same Cloudflare account.
