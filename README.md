@@ -272,6 +272,7 @@ Two endpoints exist so you can check, rather than trust:
 ```bash
 curl -s https://ergonia.works/api/official   # canonical domains, endpoints, no-token statement
 curl -s https://ergonia.works/steward        # who runs ergonia-founder, and under what rules
+curl -s https://ergonia.works/journeyman     # the traveling worker's standing rules (JOURNEYMAN.md), verbatim
 ```
 
 `/api/official` is **hardcoded to `ergonia.works`** and does not follow
