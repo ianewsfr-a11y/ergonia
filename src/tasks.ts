@@ -92,15 +92,20 @@ export async function handleCreateTask(env: Env, ctx: AuthContext, request: Requ
   if (dupe) return error(409, "near-duplicate of an existing task from this author");
 
   const createdAt = nowMs();
-  // Deduct escrow atomically with insert.
-  const escrow = env.DB
-    .prepare("UPDATE members SET credits = credits - ? WHERE id = ? AND credits >= ?")
-    .bind(reward, ctx.member.id, reward);
+  // Escrow and insert in ONE transaction, and the insert is itself
+  // conditional on the balance. A batch rolls back on an error, not on
+  // an UPDATE that matched zero rows: the earlier shape (unconditional
+  // INSERT after a conditional UPDATE) committed the task row while
+  // returning 402, so concurrent publishes could insert tasks whose
+  // reward was never debited (issue #1, seen on CI). Both statements
+  // check the same balance inside the same transaction, so either both
+  // change a row or neither does.
   const insert = env.DB
     .prepare(
       `INSERT INTO tasks
          (guild_id, author_id, title, brief, condition, reward_credits, status, expiry, created_at, dedupe_key)
-         VALUES (?, ?, ?, ?, ?, ?, 'open', ?, ?, ?)`,
+         SELECT ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?
+         WHERE (SELECT credits FROM members WHERE id = ?) >= ?`,
     )
     .bind(
       guild.id,
@@ -112,12 +117,22 @@ export async function handleCreateTask(env: Env, ctx: AuthContext, request: Requ
       expiry,
       createdAt,
       dedupeKey,
+      ctx.member.id,
+      reward,
     );
+  const escrow = env.DB
+    .prepare("UPDATE members SET credits = credits - ? WHERE id = ? AND credits >= ?")
+    .bind(reward, ctx.member.id, reward);
 
-  const batchResults = await env.DB.batch([escrow, insert]);
-  const escrowRes = batchResults[0];
-  const insertRes = batchResults[1];
-  if (!escrowRes || !insertRes || !escrowRes.meta.changes) {
+  const batchResults = await env.DB.batch([insert, escrow]);
+  const insertRes = batchResults[0];
+  const escrowRes = batchResults[1];
+  if (!insertRes || !escrowRes || !insertRes.meta.changes || !escrowRes.meta.changes) {
+    if (insertRes?.meta.changes && !escrowRes?.meta.changes) {
+      // Cannot happen inside one transaction (same balance read twice),
+      // kept as a belt: never leave a task without its escrow.
+      await env.DB.prepare("DELETE FROM tasks WHERE id = ?").bind(Number(insertRes.meta.last_row_id)).run();
+    }
     return error(402, "insufficient credits to escrow reward");
   }
   const id = Number(insertRes.meta.last_row_id);

@@ -228,20 +228,26 @@ export async function openTaskForIssue(
   const expiry = Math.floor(createdAt / 1000) + DEFAULT_EXPIRY_DAYS * 86400;
   const dedupeKey = `github:${p.repo.id}:${p.issue.number}:${createdAt}`;
 
-  const escrow = env.DB
-    .prepare("UPDATE members SET credits = credits - ? WHERE id = ? AND credits >= ?")
-    .bind(reward, principal.id, reward);
+  // Same discipline as handleCreateTask (issue #1): the task insert is
+  // conditional on the balance, the escrow is conditional on the
+  // balance, and the github_issues row is conditional on the task row
+  // this attempt inserted (its dedupe key is unique to the attempt), all
+  // in one transaction. A zero-row UPDATE never leaves an orphan task.
   const insertTask = env.DB
     .prepare(
       `INSERT INTO tasks (guild_id, author_id, title, brief, condition, reward_credits, status, expiry, created_at, dedupe_key)
-         VALUES (?, ?, ?, ?, ?, ?, 'open', ?, ?, ?)`,
+         SELECT ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?
+         WHERE (SELECT credits FROM members WHERE id = ?) >= ?`,
     )
-    .bind(guild.id, principal.id, title, brief, condition, reward, expiry, createdAt, dedupeKey);
-  // last_insert_rowid() is the task id just inserted, inside the same transaction.
+    .bind(guild.id, principal.id, title, brief, condition, reward, expiry, createdAt, dedupeKey, principal.id, reward);
+  const escrow = env.DB
+    .prepare("UPDATE members SET credits = credits - ? WHERE id = ? AND credits >= ?")
+    .bind(reward, principal.id, reward);
   const insertIssue = env.DB
     .prepare(
       `INSERT INTO github_issues (installation_id, repo_id, repo_full_name, issue_number, issue_url, base_branch, required_checks, task_id, delivery_id, opened_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, last_insert_rowid(), ?, ?)`,
+         SELECT ?, ?, ?, ?, ?, ?, ?, t.id, ?, ?
+           FROM tasks t WHERE t.author_id = ? AND t.dedupe_key = ?`,
     )
     .bind(
       p.installationId,
@@ -253,11 +259,13 @@ export async function openTaskForIssue(
       JSON.stringify(required),
       p.deliveryId,
       createdAt,
+      principal.id,
+      dedupeKey,
     );
 
   let results: D1Result[];
   try {
-    results = await env.DB.batch([escrow, insertTask, insertIssue]);
+    results = await env.DB.batch([insertTask, escrow, insertIssue]);
   } catch {
     // The partial unique index refused a second open row: someone opened
     // it between our read and here. The whole batch rolled back.
@@ -265,8 +273,10 @@ export async function openTaskForIssue(
     if (raced) return { outcome: "already_open", task_id: raced.task_id };
     throw new Error("task open batch failed");
   }
-  if (!results[0]?.meta.changes) return { outcome: "escrow_failed" };
-  const taskId = Number(results[1]?.meta.last_row_id);
+  if (!results[0]?.meta.changes || !results[1]?.meta.changes || !results[2]?.meta.changes) {
+    return { outcome: "escrow_failed" };
+  }
+  const taskId = Number(results[0]?.meta.last_row_id);
 
   await consumeQuota(env, principal, "tasks");
   await appendEvent(env, "task_created", {
