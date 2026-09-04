@@ -10,14 +10,19 @@ workers_dev = true
 [observability]
 enabled = true
 
-# G1 GitHub integration (house dogfood only, see CLAUDE.md). Off by
-# default and off in production unless the operator flips it to "on"
-# in the dashboard for the dogfood window. While off, every
-# /api/github/* and /api/verifiers/* route answers 404 like an unknown
-# path. The App's id, private key and webhook secret are Worker
-# secrets (`wrangler secret put`), never vars, never in this file.
+# G1 GitHub integration (house dogfood only, see CLAUDE.md). The code
+# defaults to off (any value but "on" is off); this var is what the
+# standard deploy ships, explicitly, so a plain `npm run deploy` cannot
+# switch the integration off by omission. Set here to "on" since the
+# dogfood loop ran on 2026-09-04 (operator decision). `npm run deploy`
+# then runs scripts/check-deploy.mjs, which fails if the deployed
+# /api/official does not report github_integration.status =
+# "house_dogfood". While off, every /api/github/* and /api/verifiers/*
+# route answers 404 like an unknown path. The App's id, private key and
+# webhook secret are Worker secrets (`wrangler secret put`), never
+# vars, never in this file.
 [vars]
-GITHUB_INTEGRATION = "off"
+GITHUB_INTEGRATION = "on"
 
 # Custom domain (Cloudflare auto-manages the proxied AAAA record on the
 # zone — no manual DNS entry needed). Requires the zone to be active on

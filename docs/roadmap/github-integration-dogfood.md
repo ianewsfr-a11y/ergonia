@@ -92,11 +92,14 @@ POSIX shell, Ctrl+Z then Enter on Windows). Alternatively use the
 Cloudflare dashboard: Workers, ergonia, Settings, Variables and Secrets,
 Add, type Secret.
 
-The flag stays `off` in `wrangler.toml`. To open the dogfood window,
-set the variable in the dashboard (Variables and Secrets, `GITHUB_INTEGRATION`
-= `on`, type Text) or deploy once with the value changed. Set it back to
-`off` after the report is written if no further dogfood is planned;
-while off, every integration route answers 404.
+The flag is declared in `wrangler.toml` (`[vars] GITHUB_INTEGRATION`),
+so the standard `npm run deploy` ships it explicitly every time; since
+the dogfood loop of 2026-09-04 it is `"on"` there. `npm run deploy`
+ends with `scripts/check-deploy.mjs`, which fails if the deployed
+`/api/official` does not report `github_integration.status =
+"house_dogfood"`. To switch the integration off, change the value in
+`wrangler.toml` and adjust or skip that check on purpose; while off,
+every integration route answers 404.
 
 Deploy the Worker (`npm run deploy`) and apply the migration:
 

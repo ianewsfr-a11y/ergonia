@@ -8,7 +8,8 @@
     "dev": "wrangler dev",
     "test": "node scripts/check-brand-drift.mjs && node scripts/gen-steward-embed.mjs --check && node scripts/gen-ambassador-embed.mjs --check && node scripts/gen-journeyman-embed.mjs --check && vitest run",
     "test:watch": "vitest",
-    "deploy": "wrangler deploy",
+    "deploy": "wrangler deploy && node scripts/check-deploy.mjs",
+    "check:deploy": "node scripts/check-deploy.mjs",
     "demo": "bash scripts/demo.sh",
     "typecheck": "tsc --noEmit"
   },
