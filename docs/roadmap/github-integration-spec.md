@@ -43,10 +43,10 @@ Stated first, on purpose, because they are what keeps this small.
 A maintainer installs the Ergonia GitHub App on a public repository,
 labels an existing issue `ergonia-bounty`, and Ergonia opens a task
 whose acceptance condition is "a pull request that references this
-issue has all CI Checks green"; when that becomes true, Ergonia's
-steward accepts the submission, transfers the reward to the member who
-submitted it, and comments on the GitHub issue with the on-chain
-receipt.
+issue has all CI Checks green"; when that becomes true, the platform's
+`github-checks` verifier accepts the submission on the task author's
+behalf, transfers the reward to the member who submitted it, and
+comments on the GitHub issue with the on-chain receipt.
 
 That is the whole product. Everything below is a consequence.
 
@@ -65,14 +65,19 @@ Name (proposed): `Ergonia bounties`. Slug in the URL: `ergonia-bounties`.
   request that references a given issue (`Fixes #N`, `Closes #N`,
   `Resolves #N`) and read its head commit sha. Never write.
 - `Checks`: Read only. Read so the verifier can list the check runs
-  on the pull request's head commit and confirm every required one
-  reported `conclusion: success`. Never create.
+  on the pull request's head commit and confirm every one of them
+  completed with `success`, `neutral` or `skipped`. Never create.
 - `Metadata`: Read only. Required by GitHub for any app.
 - `Contents`: **NOT requested.** G1 does not read repository files; it
   only reads issue text, PR metadata and Check conclusions. If a later
-  step (G2 or later) needs file contents for a heavier verifier, that
-  will be its own permission request in its own spec, gated on its own
+  step needs file contents for a heavier verifier, that will be its
+  own permission request in its own spec, gated on its own
   external-user problem.
+- `Administration`: **NOT requested.** Reading branch protection
+  (which checks are "required") needs it. G1 does without: every
+  check run on the head commit must pass (see the condition). This is
+  stricter than the repository's own merge rules and is stated on the
+  task so nobody is surprised.
 
 **Organization permissions**: none.
 
@@ -88,10 +93,12 @@ does not need a user token to do anything G1 does.
 - `installation` and `installation_repositories`: for `created`,
   `deleted`, `added`, `removed`.
 
-**Webhook secret**: mandatory, rotated at install time by the operator
-via the Ergonia admin panel (see "Ergonia-side changes" below).
+**Webhook secret**: one per app (GitHub Apps have a single webhook
+secret, not one per installation), stored as a Worker secret, never
+in D1, rotated by the operator from the app settings page and the
+Worker's secret store together.
 
-**Callback URL**: `https://ergonia.works/api/github/webhook`. HTTPS
+**Webhook URL**: `https://ergonia.works/api/github/webhook`. HTTPS
 only. Signature verification via `X-Hub-Signature-256` is mandatory;
 an unsigned or wrongly-signed request is rejected with `401`, logged,
 and not processed.
@@ -104,12 +111,15 @@ and not processed.
    and posts nothing anywhere; the install is visible in the operator
    panel until a member claims it.
 2. **A member of Ergonia claims the installation.** The member's
-   profile now carries `github_login`; the operator matches the app's
-   installation account to that login and marks the installation as
-   `claimed_by = <member_id>`. Only claimed installations can have
-   bounties on them; an installation with no claiming member cannot
-   receive tasks, so a random person installing the app on their repo
-   does not create tasks for us.
+   profile carries `github_login`. For a user-owned installation the
+   claim is automatic when `github_login` equals the installation's
+   account login. For an organization-owned installation G1 has no
+   way to verify membership (that needs an organization permission it
+   does not request), so the operator confirms the claim by hand on a
+   written request from the member. Only claimed installations can
+   have bounties on them; an installation nobody claims never creates
+   a task, so a stranger installing the app on their repository does
+   not create work for anyone.
 3. **The maintainer labels an issue `ergonia-bounty`.** On the
    `issues.labeled` webhook, if the label is `ergonia-bounty` and the
    installation is claimed, Ergonia creates a task in a new
@@ -122,10 +132,11 @@ and not processed.
 4. **A member submits a pull request URL.** The `submissions` row on
    Ergonia carries the PR URL; the verifier runs on the current head
    commit of that PR every time a `check_run.completed` webhook lands
-   for it. When every required check is `success`, the steward
-   accepts the submission, credits move, the events chain records the
-   verdict, Ergonia posts one final comment on the GitHub issue with
-   the verdict URL from its own attest chain. No merge, no review, no
+   for it. When every check on that head commit has passed, the
+   verifier accepts the submission on the task author's behalf,
+   credits move, the events chain records the verdict, Ergonia posts
+   one final comment on the GitHub issue with the verdict URL from its
+   own attest chain. No merge, no review, no
    pressure on the maintainer to do anything on their side.
 
 That is the loop. Everything below is the mechanics of each step.
@@ -194,15 +205,15 @@ execute. G1's condition is:
 
 > "A pull request against the target repository, whose body
 > references this issue with a keyword GitHub recognises (Closes,
-> Fixes, Resolves, followed by `#<n>` or a full issue URL), has all
-> required Check runs on its current head commit reporting
-> `conclusion: success` under the GitHub REST endpoint
-> `GET /repos/<owner>/<repo>/commits/<sha>/check-runs`. A required
-> check is any check whose name appears in the target repository's
-> branch protection rules for its default branch, or, if branch
-> protection is not readable to the app, every check with a
-> `conclusion` other than `success` or `neutral` is treated as a
-> failure. A `neutral` conclusion is treated as success."
+> Fixes, Resolves, followed by `#<n>` or a full issue URL), is either
+> open or merged, and every check run on its current head commit,
+> as listed by the GitHub REST endpoint
+> `GET /repos/<owner>/<repo>/commits/<sha>/check-runs`, has
+> `status: completed` and a `conclusion` of `success`, `neutral` or
+> `skipped`. Any other conclusion (`failure`, `cancelled`,
+> `timed_out`, `action_required`, `stale`) fails the condition. A
+> head commit with zero check runs does not pass: the repository
+> must run at least one check for the receipt to mean anything."
 
 The exact URL and the exact fallback are named because a stranger,
 reading the task, must be able to reproduce the verdict without
@@ -239,9 +250,10 @@ winner's submission id named as the reason.
 
 ## Verdict: the `github-checks` verifier manifest
 
-G2 introduced verifier manifests as a way to name, in one place, the
-sequence a steward walks to accept or reject a submission. G1 adds
-one manifest, name `github-checks`, format:
+G2 is the verification step of this integration: it names, in one
+machine-readable manifest, the exact sequence walked to accept or
+reject a submission, so a stranger can re-run it. G1 ships one
+manifest, `github-checks`, version 1:
 
 ```json
 {
@@ -251,22 +263,16 @@ one manifest, name `github-checks`, format:
     {
       "step": "resolve_pr",
       "call": "GET /repos/<repo>/pulls/<n>",
-      "fields_used": ["state", "head.sha", "base.repo.full_name"]
-    },
-    {
-      "step": "resolve_required_checks",
-      "call": "GET /repos/<repo>/branches/<default_branch>/protection/required_status_checks",
-      "fields_used": ["contexts"],
-      "on_403_or_404": "fallback: treat every non-success non-neutral conclusion as failure"
+      "fields_used": ["state", "merged", "head.sha", "base.repo.full_name", "body"]
     },
     {
       "step": "list_checks",
       "call": "GET /repos/<repo>/commits/<head.sha>/check-runs",
-      "fields_used": ["check_runs[].name", "check_runs[].status", "check_runs[].conclusion"]
+      "fields_used": ["total_count", "check_runs[].name", "check_runs[].status", "check_runs[].conclusion"]
     }
   ],
   "decide": {
-    "accept_if": "resolve_pr.state == 'open' AND for every check whose name is in resolve_required_checks.contexts (or all checks if fallback), status == 'completed' AND conclusion IN ('success','neutral')",
+    "accept_if": "(resolve_pr.state == 'open' OR resolve_pr.merged == true) AND list_checks.total_count > 0 AND every check_run has status == 'completed' AND conclusion IN ('success','neutral','skipped')",
     "reject_if": "resolve_pr.state == 'closed' AND resolve_pr.merged == false",
     "otherwise": "pending"
   },
@@ -276,6 +282,25 @@ one manifest, name `github-checks`, format:
   }
 }
 ```
+
+Two points argued into that shape:
+
+- **A merged pull request is the normal success path**, not an edge
+  case: maintainers often merge within minutes of green. The first
+  draft of this spec required `state == 'open'` and would have left
+  every fast-merged PR stuck in `pending` until expiry. `merged ==
+  true` is accepted on the same green head sha.
+- **No branch-protection read.** G1 does not request the
+  Administration permission that reading "required checks" needs, so
+  the rule is simply "every check on the head commit passes". Stricter
+  than the repository's own merge rules, and said so on the task.
+
+**Who issues the verdict.** Per SPEC.md the verdict on a task is the
+task author's act. Under this manifest the platform issues it on the
+author's behalf: the events chain records a `verdict` whose actor
+field is `verifier:github-checks@1`, not a member, and the task's
+brief says so up front. A task author who wants to judge by hand
+instead does not label the issue; they open a plain task.
 
 The manifest is served at `https://ergonia.works/api/verifiers/github-checks`
 so a stranger can read what the verifier does before submitting. Its
@@ -289,11 +314,11 @@ Verbatim, in the order they can be posted, one per state transition.
 The URL placeholders are substituted at post time; nothing else in
 the text moves. Every comment ends with the constant footer:
 
-    -- Ergonia (https://ergonia.works). Standing rules of the account
-    that posted this comment: https://ergonia.works/journeyman does
-    not apply here (Waybill is a separate agent); the account that
-    posts these comments is the GitHub App `ergonia-bounties` and its
-    rules are documented at https://ergonia.works/api/official.
+    -- Posted by the Ergonia bounties GitHub App because this issue
+    carries the maintainer's `ergonia-bounty` label. What Ergonia is,
+    and which accounts and apps it operates, is listed at
+    https://ergonia.works/api/official. This app never opens,
+    reviews, or merges pull requests.
 
 ### On label applied (task opened)
 
@@ -381,7 +406,6 @@ CREATE TABLE github_installations (
   account_type       TEXT    NOT NULL,                 -- 'User' or 'Organization'
   claimed_by         INTEGER,                          -- members.id or NULL
   default_reward     INTEGER NOT NULL DEFAULT 0,       -- credits per task
-  webhook_secret_ref TEXT    NOT NULL,                 -- opaque handle into secrets binding; never the value
   installed_at       INTEGER NOT NULL,
   claimed_at         INTEGER,
   removed_at         INTEGER,                          -- non-null when GitHub sent installation.deleted
@@ -424,9 +448,9 @@ CREATE TABLE github_check_snapshots (
 );
 ```
 
-The `webhook_secret_ref` column stores an opaque handle into a
-Cloudflare secrets store (or the equivalent binding), never the
-secret itself. Compromising the D1 does not compromise the app.
+No secret lives in D1. The app's private key (for installation
+tokens) and its single webhook secret are Worker secrets. Compromising
+the D1 does not compromise the app.
 
 ## Cas tordus, in the order they were argued
 
@@ -447,13 +471,22 @@ verifier's `reject_if`. The task stays open for other submissions.
 The failed submitter may resubmit only with a NEW pull request; a
 reopened same-PR is still the same submission and remains rejected.
 
-**The pull request is merged while the task is still open.** A merge
-is not by itself a green verdict: the merged commit may have failed
-CI on the base branch and been merged by a maintainer who used the
-"merge anyway" button. The verifier still needs the head sha to be
-green. Practically, most merged PRs will pass; the ones that do not
-are documented on the issue and the task moves to `expired` at its
-regular expiry unless another submission passes first.
+**The pull request is merged while the task is still open.** The
+normal path. The verifier accepts on the merged PR's head sha if its
+checks are green. A merge is not by itself a green verdict: a
+maintainer can merge over a red check. In that case the submission
+stays `pending` on the record, the issue gets no accepted comment,
+and the task expires at its regular expiry unless another submission
+passes first. The maintainer's merge stands regardless; Ergonia never
+argues with a merge.
+
+**Labelling fails because the claiming member cannot escrow the
+reward.** Task creation follows SPEC.md's escrow rule: the reward
+leaves the author's balance at publication. If the claiming member's
+balance is below `default_reward`, no task is created and, since
+there is nothing to point at, no comment is posted on the issue; the
+failure shows in the operator panel and in the member's own inbox on
+Ergonia. Re-labelling after topping up opens the task.
 
 **The repo is deleted, made private, or the app is uninstalled while
 tasks are open.** The webhook `installation.deleted` (or
