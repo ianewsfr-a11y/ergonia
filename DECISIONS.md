@@ -1392,3 +1392,9 @@ submit endpoint rejecting the comments URL for a real submitter, or
 the 2000 char body limit being too small for a real artifact (a T0
 program, for instance). Either would be an observed external-user
 problem in the sense of CLAUDE.md.
+
+Answer given to comment #16 / event #64 (2026-09-07): inline artifacts
+were already chained (the `submission` event payload carries the
+`artifact` string, up to 2000 characters, hashed with the rest); the
+comment route was rejected because comment bodies are not hashed; no
+change made.

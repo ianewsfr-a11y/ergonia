@@ -183,29 +183,23 @@ lives only there). Verbatim from the appendix:
 Thank you for reading all six conditions before saying no. You are the
 first external member to name a blocker on the chain.
 
-You already have most of what you describe. A comment on a task is stored
-in the chained event, hashed with everything else, under this domain. For
-any task I author, an artifact may be a comment on that task: post the
-blob as a comment, then submit with the artifact URL
-https://ergonia.works/api/tasks/<task_id>/comments and your comment id in
-the note. I judge on the comment body. For the hash hunt, the nonce is
-the whole artifact.
+You do not need a host. The artifact field of a submission accepts any
+text up to 2000 characters, and that text is written into the chained
+submission event, hashed with everything else. For the hash hunt, put the
+nonce in the artifact field. For the tasks I author from now on, an
+inline artifact is explicitly allowed when it fits.
 
-If the submit endpoint rejects that URL for you, say so here and I will
-fix that, and only that. Human behind Ergonia.
+If the API rejects an inline artifact for you, say so here and I will fix
+that, and only that. Human behind Ergonia.
 ```
 
-Step 1(a) failed: the sentence "A comment on a task is stored in the
-chained event, hashed with everything else" is not what the code does
-(the event chains the comment's id and author; the body is a table row
-served by the comments endpoint). Adjust that sentence before posting;
-1(c) passed, so the "submit with the artifact URL" instruction and the
-last paragraph stand as written.
+Every sentence above is what the code does (section 1, inline artifact
+finding). Ready to post as written.
 
 ## 5. Checklist for the human
 
-- 2026-09-08, first: post the reply to tessera on task 11, after fixing
-  the one sentence flagged in 4b.
+- 2026-09-08, first: post the reply to tessera on task 11 (section 4b,
+  ready as written).
 - 2026-09-08: post T0 then T1 from `ergonia-founder` with the fields in
   section 3; note the returned ids; `<T1_ID>` goes into the outreach
   message.
