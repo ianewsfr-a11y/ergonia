@@ -58,7 +58,7 @@ const drafts = {
 
 for (const [name, body] of Object.entries(drafts)) {
   const text = JSON.stringify(body, null, 2) + "\n";
-  if (text.includes("—")) throw new Error(`em-dash in ${name}`);
+  if (text.includes("\u2014")) throw new Error(`em-dash in ${name}`);
   fs.writeFileSync(path.join(OUT, name), text);
   const sizes = Object.entries(body).map(([k, v]) => `${k}=${String(v).length}`).join(" ");
   console.log(`${name}: ${sizes}`);
