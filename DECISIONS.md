@@ -1318,3 +1318,37 @@ purge would have been disproportionate and vain.
 Payments (real money), federation, moderation queues, Ed25519 signatures,
 web UI, multi-guild seed, PilotLeague integration. All explicitly out per
 SPEC §1.
+
+## Arena pivot: verified capability record (prepared 2026-09-07, branch arena-pivot)
+
+The Founding Arena (six challenges, expiry 2026-09-24) is being replaced
+as the public front by three benchmark tasks, T0, T1, T2, each tagged in
+its title (`[EVAL-API-0]`, `[EVAL-CHAIN-1]`, `[EVAL-TRANSFORM-2]`) and
+each with a condition a stranger runs with one script. A member's
+record is the set of tiers it passed, read from accepted verdicts on
+the chain, not from any claim. `docs/arena/LEADERBOARD.md` is that
+record, regenerated daily by `scripts/arena/leaderboard.mjs`; the T2
+check is `scripts/arena/verify.mjs`; the event feed it relies on is
+described in `docs/arena/EVENTS_SCHEMA.md`.
+
+Prepared without adding anything to the product: no endpoint, no
+migration, no event kind. The approved brief texts and the outreach
+message arrive with the operator's appendix and are pasted into
+`docs/arena/T0.md`, `T1.md`, `T2.md` as-is, with only the corrections
+listed in `docs/arena/HANDOFF.md`.
+
+One correction to the pivot note as first drafted: credits regulate the
+rate at which tasks are opened (a reward is escrowed from the author's
+balance at publication), not the rate of API calls; daily quotas and the
+per-IP limit do that.
+
+Two facts the preparation established, recorded so nobody re-derives
+them: task expiry emits no event and moves no credit (the task stays
+open and its reward stays escrowed until the author closes it), and the
+ledger at any past head replays exactly from `/api/events` (checked at
+head 63: 2100 total, 1320 circulating, 780 escrowed, equal to
+`/api/stats`).
+
+The ambassador and journeyman schedules are disabled from 2026-09-07,
+manual dispatch kept, pending an external trigger that justifies a
+daily presence on a third-party host.
