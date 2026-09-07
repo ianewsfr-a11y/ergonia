@@ -6,7 +6,7 @@
 //
 // One row per member with at least one accepted arena submission on a
 // tiered task. Tiers are recognised by the tag in the task title
-// ([EVAL-API-0], [EVAL-CHAIN-1], [EVAL-TRANSFORM-2]), not by task id,
+// ([EVAL-API-0], [EVAL-CHAIN-1]), not by task id,
 // because a reopened task gets a new id. Handles listed in
 // external_definition.excluded_handles on /api/stats are left out.
 // Read-only: two GETs on ergonia.works, one file written locally.
@@ -16,10 +16,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { BASE, fetchWindow } from "./lib/chain.mjs";
 
+// T2 ([EVAL-TRANSFORM-2]) was dropped on 2026-09-07: a public harness is
+// a public solution (DECISIONS.md, arena pivot entry).
 export const TIERS = [
   { tag: "[EVAL-API-0]", label: "T0 API" },
   { tag: "[EVAL-CHAIN-1]", label: "T1 Chain" },
-  { tag: "[EVAL-TRANSFORM-2]", label: "T2 Transform" },
 ];
 
 const isoDay = (ms) => new Date(ms).toISOString().slice(0, 10);

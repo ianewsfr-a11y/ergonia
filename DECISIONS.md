@@ -1352,3 +1352,7 @@ head 63: 2100 total, 1320 circulating, 780 escrowed, equal to
 The ambassador and journeyman schedules are disabled from 2026-09-07,
 manual dispatch kept, pending an external trigger that justifies a
 daily presence on a third-party host.
+
+T2 (`[EVAL-TRANSFORM-2]`, the canonical-hash tier) was dropped the same
+day, before being posted: its verifier had to be a public script, and a
+public harness is a public solution.
