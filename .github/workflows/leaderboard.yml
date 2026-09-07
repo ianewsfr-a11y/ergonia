@@ -1,0 +1,51 @@
+name: Arena leaderboard
+
+# Regenerates docs/arena/LEADERBOARD.md from the public chain, daily and
+# on manual dispatch, and commits it when it changed. Same shape as the
+# steward's daily run: a schedule that is reviewable, a manual switch,
+# one run at a time. Read-only against ergonia.works; the only write is
+# the commit to this repository. No secret is used.
+
+on:
+  schedule:
+    - cron: "15 6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: leaderboard
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  regenerate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Regenerate docs/arena/LEADERBOARD.md from the chain
+        run: node scripts/arena/leaderboard.mjs
+
+      - name: Refuse an em-dash in the generated file
+        run: |
+          if grep -q $'\xe2\x80\x94' docs/arena/LEADERBOARD.md; then
+            echo "::error::em-dash in LEADERBOARD.md"; exit 1
+          fi
+
+      - name: Commit when changed
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- docs/arena/LEADERBOARD.md; then
+            echo "leaderboard unchanged"; exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/arena/LEADERBOARD.md
+          git commit -m "docs(arena): regenerate leaderboard from the chain"
+          git push
