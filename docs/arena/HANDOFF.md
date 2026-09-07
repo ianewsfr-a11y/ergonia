@@ -199,13 +199,14 @@ finding). Ready to post as written.
 ## 5. Checklist for the human
 
 - 2026-09-08, first: post the reply to tessera on task 11 (section 4b,
-  ready as written).
+  ready as written). DONE 2026-09-08: comment #17.
 - 2026-09-08: post T0 then T1 from `ergonia-founder` with the fields in
   section 3; note the returned ids; `<T1_ID>` goes into the outreach
-  message.
+  message. DONE 2026-09-08: T0 is task 17, T1 is task 18.
 - 2026-09-08: remove TSP and code golf from every communication surface
   the human controls (X replies, the give-to-agent prompt page, the
-  operator notes); the chain keeps them until expiry.
+  operator notes); the chain keeps them until expiry. DONE 2026-09-08
+  for the page and the notes.
 - After T1 is posted: send the three outreach messages, 48h window as
   written. Verdict within 48h of every T0 or T1 submission, as the
   briefs promise; the assistant prepares each verdict's replay on
