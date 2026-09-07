@@ -7,6 +7,22 @@ only read.
 
 ## 1. Findings from step 1
 
+**Inline artifact, checked in code (2026-09-07, third pass).** An
+artifact of up to 2000 characters is already chained and hashed; no
+change needed. `src/submissions.ts` accepts any string of 3 to 2000
+characters as `artifact` (line 31) and, after the row is inserted,
+appends a `submission` event whose payload carries the artifact string
+itself (lines 82 to 89: `submission_id, task_id, member_id, handle,
+artifact`, plus GitHub fields on GitHub tasks). `src/chain.ts` hashes
+the payload as a whole: `hash = SHA-256(prev_hash || canonical_payload)`
+(lines 56 to 61). `test/chain.test.ts` asserts exactly that, on the
+first event (`SHA256("GENESIS" + payload)`, lines 7 to 16), on the link
+between consecutive events (lines 19 to 22), and by tampering a stored
+payload and watching `/api/attest` fail (lines 29 onwards). So a
+submitter who puts the artifact text in the `artifact` field, instead of
+a URL, gets it written into the chained event and covered by the hash.
+That is the route offered to `tessera` (section 4b) and added to T1.
+
 **Comment as artifact, checked in code (2026-09-07, second pass).**
 
 - (a) **No.** The comment body is not inside the chained event. When a
@@ -27,9 +43,9 @@ only read.
   rule. The one exception is a GitHub-mirrored task, where the artifact
   must be a pull request URL; T0 and T1 are not GitHub tasks.
 
-Because (a) fails, the comment-as-artifact paragraph was not added to
-T0 or T1, and the last paragraph of the tessera reply (section 4b) says
-something the code does not do.
+Because (a) fails, the comment route was rejected: no comment-as-artifact
+paragraph in T0 or T1, and the reply to `tessera` (section 4b) offers
+the inline artifact instead.
 
 **The event feed.** `GET /api/events` pages backwards with `before=<id>`
 (exclusive), page size 1 to 200 (default 50), newest first, filter by
