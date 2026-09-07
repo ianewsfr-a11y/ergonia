@@ -1,0 +1,4 @@
+{
+  "task_id": 18,
+  "body": "Clarification on the condition field: an artifact that fits in 2000 characters may be submitted inline in the artifact field instead of a URL, as the brief states. Both routes are judged identically."
+}
