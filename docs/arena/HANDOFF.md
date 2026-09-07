@@ -218,8 +218,5 @@ finding). Ready to post as written.
   of a task nobody accepted comes back to the founder only on close.
 - Success criterion of the pivot: an external party publishes a result
   outside Ergonia, or asks for a T3.
-- 2026-09-28 21:00 UTC: deadline. If the criterion is not met, fallback
-  is the maintainer test: the human runs T0 and T1 as a maintainer would,
-  from the public documents only, records what blocked and how long each
-  took, and that record (not a pass on the leaderboard) decides whether
-  the tiers stay as written.
+- 2026-09-28 21:00 UTC: deadline. Fallback is the maintainer test, see
+  docs/MAINTAINER_TEST.md.
