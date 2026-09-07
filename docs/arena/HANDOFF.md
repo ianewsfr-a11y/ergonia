@@ -75,107 +75,141 @@ posted with the bearer, returned as an immutable public raw URL under
 the world's own domain, with the blob's hash in the same chain. It
 would submit to the hash hunt the day such an endpoint exists. This is
 the first external answer on the chain and the first named
-external-user problem in the sense of CLAUDE.md. Recorded here only;
-nothing was built (hard constraint: no new endpoint). It should shape
-the T0 to T2 conditions: an artifact rule that admits a comment on the
-task itself, or a chain event, as the artifact would let this member
-in without any new surface.
+external-user problem in the sense of CLAUDE.md. Recorded in
+DECISIONS.md; nothing was built (hard constraint: no new endpoint).
 
-## 2. Not done under the constraints
+## 2. Not done, or done differently, under the constraints
 
-- **The appendix was not in the mission text** (the message ends on the
-  placeholder "[paste here, unchanged: ...]"). Without it: `T0.md`,
-  `T1.md`, `T2.md` were not created (the rule was to paste the approved
-  briefs unmodified, so writing them would have meant inventing them);
-  the DECISIONS.md entry from the appendix was not appended (an entry in
-  the repository's own words was written instead, with the requested
-  correction and the schedule line); the outreach message was not
-  copied; the `verify.mjs` skeleton was not available, so the harness
-  was written from the mission's own description of the rules.
-- **T2 rule order is therefore ASSUMED** in `scripts/arena/verify.mjs`:
-  window FIRST_ID..HEAD ascending; record `{id, kind, created_at,
-  payload, prev_hash, hash}` with `created_at` as ISO 8601 UTC truncated
-  to the second; canonical JSON (sorted keys at every depth, no
-  whitespace); LF-joined, no trailing newline; SHA-256 hex. Artifact
-  format assumed: lines `FIRST_ID=`, `HEAD=`, `SHA256=`. If the brief
-  says otherwise, the harness and the recorded hash must be redone
-  before T2 is posted.
-- Sample window recorded with those rules: FIRST_ID 1, SAMPLE_HEAD 40
-  (a sealed verdict event), SHA-256
-  `a37645be7ae677fc6497af809961a9ba67435dced727bf2f712e7ec777829ec5`,
-  identical offline and through the live API. Permalink of the harness:
-  `https://github.com/ianewsfr-a11y/ergonia/blob/702a2fb/scripts/arena/verify.mjs`
-  (commit of step 2 on this branch; the `main` permalink exists only
-  after merge).
-- `DECISIONS.md` already contains 93 em-dashes in older entries. The
-  new entry has none. The existing test covers served surfaces only
-  (door, llms.txt, /api/official, /api/arena, /journeyman); it does not
-  read docs. The new files under `docs/arena/` and `scripts/arena/`
-  were checked by hand: zero em-dashes.
-- The leaderboard has no test of its own; its replay reuses the tested
-  ledger helpers. Today it renders one placeholder row: no tiered task
-  exists yet.
-- Disabling the ambassador and journeyman schedules required commits on
-  those repositories' `main` (a workflow only takes effect there):
-  ambassador `1de2fa9`, journeyman nightly `5172489`, MAG watch
-  `c1e1c00` (written through the Contents API; the local checkouts of
-  those two repositories are behind their remote). Manual dispatch kept
-  on all three.
+- **Comment-as-artifact paragraph not added** to T0 and T1: step 1(a)
+  failed (body not hashed). The briefs are the appendix texts verbatim.
+- **T2 dropped** (step 2): `scripts/arena/verify.mjs` and its tests
+  removed, the T2 tier removed from the leaderboard generator and the
+  generated file, one line in DECISIONS.md. Kept: `scripts/arena/lib/
+  chain.mjs` (fetchWindow, replayLedger) with `test/arena-ledger.test.ts`,
+  because the leaderboard needs the replay and T1 allows citing public
+  code. If the human considers the replay itself a public solution to
+  T1, delete `replayLedger` and inline a private copy in the leaderboard
+  workflow; say so and it is done.
+- **DECISIONS entry language.** The approved entry was in French without
+  accents; DECISIONS.md is written in English, so it was carried over
+  sentence for sentence in English and merged with the branch entry, no
+  line duplicated. The French original is in the operator's appendix.
+- `DECISIONS.md` already contained 93 em-dashes in older entries. Every
+  file under `docs/arena/` and `scripts/arena/` was checked by hand:
+  zero em-dashes. The existing test covers served surfaces only.
+- The leaderboard has no test of its own; it reuses the tested ledger
+  helpers. Today it renders one placeholder row: no tiered task exists
+  yet. Its columns (tiers passed, first pass per tier) differ from the
+  T0 required output (accepted count, earliest accepted id) on purpose:
+  T0 asks the submitter to rebuild a leaderboard from the log, not to
+  copy this file.
+- **Disabled schedules, confirmed on the remote mains** (files read on
+  2026-09-07 through the GitHub API and diffed against the pre-change
+  copies): `ergonia-ambassador/.github/workflows/ambassador.yml`
+  (commit `1de2fa9`), `ergonia-journeyman/.github/workflows/journeyman.yml`
+  (`5172489`) and `mag-watch.yml` (`c1e1c00`) differ from their previous
+  version only on the `schedule:` block, now commented out with a dated
+  note. `workflow_dispatch` and every input, job and gate are unchanged.
+  The local checkouts of those two repositories are behind their remote.
 
 ## 3. Task texts and fields
 
-The exact brief texts arrive with the appendix and are pasted as-is
-with these corrections only:
+Texts: `docs/arena/T0.md` and `docs/arena/T1.md`, verbatim from the
+appendix. Paste each file's whole content into the `brief` field.
 
-- Every Context block, the Goal of T1, the Source data of T2: replace
-  "immediately before your own submission event" or "ends at the event
-  immediately preceding" with "at HEAD, one of the 3 events immediately
-  preceding your submission event".
-- T1: second output line `TOTAL CIRCULATING ESCROW` at event `HEAD - 25`;
-  Acceptance says both lines must match the replay. Escrow stays in
-  both lines (it is reconstructible, see 1c).
-- T2: FIRST_ID = 1, SAMPLE_HEAD = 40, SHA-256 as above, permalink as
-  above.
+Fields for `POST /api/tasks` as `ergonia-founder` (the API refuses a
+condition that lacks an artifact word and a control verb; both below
+carry "URL" and "verify"):
 
-Fields to set when posting (`POST /api/tasks`, as `ergonia-founder`):
-
-| Field | Constraint from code | Proposal |
+| Field | T0 | T1 |
 | --- | --- | --- |
-| `guild` | slug | `arena` |
-| `title` | 3 to 120 chars, must contain the tier tag | `[EVAL-API-0] ...`, `[EVAL-CHAIN-1] ...`, `[EVAL-TRANSFORM-2] ...` |
-| `brief` | 10 to 8000 chars | the appendix text with the corrections above |
-| `condition` | 10 to 2000 chars; must mention an artifact word (url, hash, sha256, file, json, endpoint...) and a control verb (verify, matches, equals, returns...) or the API refuses it with 400 | for T2: "Artifact is a public text URL with lines FIRST_ID=, HEAD=, SHA256=. Verify with node scripts/arena/verify.mjs FIRST_ID HEAD ARTIFACT_URL SUBMISSION_ID: PASS iff the SHA256 line equals the harness output and HEAD is one of the 3 events before the submission event." |
-| `reward_credits` | 1 to 10000, escrowed from the founder's balance (440 today) | as in the appendix; if absent, 20 / 40 / 60 |
-| `expiry` | epoch seconds, future | 1790629200 (2026-09-28 21:00:00 UTC) |
+| `guild` | `arena` | `arena` |
+| `title` | `[EVAL-API-0] Rebuild the arena leaderboard from the public event log` | `[EVAL-CHAIN-1] Reconstruct the credit ledger at HEAD and HEAD - 25` |
+| `brief` | content of `docs/arena/T0.md` | content of `docs/arena/T1.md` |
+| `condition` | `Artifact is one public raw URL with HEAD=<id>, the program, its exact output, and reused code URLs. Verify: HEAD is one of the 3 events before the submission event; running the program with HEAD reproduces the output byte for byte; the output matches the leaderboard recomputed from /api/events up to HEAD.` | `Artifact is one public raw URL with HEAD=<id> and two lines TOTAL CIRCULATING ESCROW, at HEAD and at HEAD - 25. Verify: HEAD is one of the 3 events before the submission event, and both lines match the replay of /api/events up to HEAD and up to HEAD - 25.` |
+| `reward_credits` | 1 | 1 |
+| `expiry` | 1790629200 (2026-09-28 21:00:00 UTC) | 1790629200 (2026-09-28 21:00:00 UTC) |
 
-A comment-only artifact rule (see the `tessera` finding) would read, for
-T0: "Artifact may be `comment:<id>` for a comment on this task whose
-body contains the required line; verify by GET /api/tasks/<id>/comments."
+Titles are 3 to 120 chars, conditions under 2000 chars, briefs under
+8000 chars (T0 is about 2300, T1 about 1550). Each task escrows 1 credit
+from the founder's balance (440 today). "Reopened after each
+acceptance" means: after an accepted verdict closes the task, the human
+posts it again with the same title and brief; the dedupe check is per
+author on title plus brief, so the reopened copy needs one visible
+change (for example a date suffix in the title after the tag).
 
 ## 4. Outreach message
 
-Not supplied (appendix missing). To be pasted here verbatim, with
-`<T1_ID>` left as a placeholder and "48h" as written.
+Verbatim from the appendix; `<T1_ID>` is the id the API returns when T1
+is posted.
+
+```
+Human behind Ergonia here. I run a public API where AI agents complete
+tasks and every verdict is written to a hash-chained log.
+
+I wrote one eval whose correct answer depends on the chain state at the
+moment the agent submits, so it cannot be copied from a previous run, and
+anyone can replay the verdict from public data:
+https://ergonia.works/api/tasks/<T1_ID>
+
+Verdicts land within 48h. If you point the agents you compare at it,
+the results are yours to publish. I will not follow up.
+```
+
+## 4b. Reply to tessera
+
+To be posted by the human as a comment on task 11 (`POST /api/comments`,
+`task_id` 11, from `ergonia-founder`; through the steward
+`founder-comment` workflow with a `drafts/*.json` body, since the key
+lives only there). Verbatim from the appendix:
+
+```
+Thank you for reading all six conditions before saying no. You are the
+first external member to name a blocker on the chain.
+
+You already have most of what you describe. A comment on a task is stored
+in the chained event, hashed with everything else, under this domain. For
+any task I author, an artifact may be a comment on that task: post the
+blob as a comment, then submit with the artifact URL
+https://ergonia.works/api/tasks/<task_id>/comments and your comment id in
+the note. I judge on the comment body. For the hash hunt, the nonce is
+the whole artifact.
+
+If the submit endpoint rejects that URL for you, say so here and I will
+fix that, and only that. Human behind Ergonia.
+```
+
+Step 1(a) failed: the sentence "A comment on a task is stored in the
+chained event, hashed with everything else" is not what the code does
+(the event chains the comment's id and author; the body is a table row
+served by the comments endpoint). Adjust that sentence before posting;
+1(c) passed, so the "submit with the artifact URL" instruction and the
+last paragraph stand as written.
 
 ## 5. Checklist for the human
 
-- 2026-09-08: paste the appendix; the assistant creates `T0.md`,
-  `T1.md`, `T2.md` with the corrections, redoes the T2 hash if the rule
-  order differs, and updates this handoff. Then post T0, T1, T2 from
-  `ergonia-founder` (through the steward `founder-comment` pattern or
-  the key, whichever exists that day), with the fields above.
+- 2026-09-08, first: post the reply to tessera on task 11, after fixing
+  the one sentence flagged in 4b.
+- 2026-09-08: post T0 then T1 from `ergonia-founder` with the fields in
+  section 3; note the returned ids; `<T1_ID>` goes into the outreach
+  message.
 - 2026-09-08: remove TSP and code golf from every communication surface
   the human controls (X replies, the give-to-agent prompt page, the
   operator notes); the chain keeps them until expiry.
-- 2026-09-08: answer `tessera` on task 11 if the human wants to (a
-  comment, from the founder); the assistant drafts it on request.
+- After T1 is posted: send the three outreach messages, 48h window as
+  written. Verdict within 48h of every T0 or T1 submission, as the
+  briefs promise; the assistant prepares each verdict's replay on
+  request, the human renders it.
 - 2026-09-24, after 21:12 UTC: render verdicts on the four pending
   external submissions (#6 task 10, #7 task 13, #8 task 9, #9 task 11,
-  all by `spikip`; #9 already re-verified, sum 5628). Accepting one pays
-  its reward from escrow and closes that task.
-- Once `<T1_ID>` is known: send the three outreach messages, 48h window
-  as written.
-- 2026-09-28: deadline. If no external member has passed T1 by then,
-  fallback: the maintainer test (the human runs T0 to T2 with a
-  non-house account and records the result on the leaderboard as a
-  house pass, marked as such).
+  all by `spikip`; #9 already re-verified, sum 5628). Then close every
+  expired arena task explicitly with `POST /api/tasks/:id/close`
+  (tasks 9 to 14 as applicable): expiry is not an event, and the escrow
+  of a task nobody accepted comes back to the founder only on close.
+- Success criterion of the pivot: an external party publishes a result
+  outside Ergonia, or asks for a T3.
+- 2026-09-28 21:00 UTC: deadline. If the criterion is not met, fallback
+  is the maintainer test: the human runs T0 and T1 as a maintainer would,
+  from the public documents only, records what blocked and how long each
+  took, and that record (not a pass on the leaderboard) decides whether
+  the tiers stay as written.
