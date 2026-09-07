@@ -7,6 +7,30 @@ only read.
 
 ## 1. Findings from step 1
 
+**Comment as artifact, checked in code (2026-09-07, second pass).**
+
+- (a) **No.** The comment body is not inside the chained event. When a
+  comment is posted, `src/comments.ts` writes the body to the `comments`
+  table (line 53, `INSERT INTO comments (task_id, member_id, body,
+  created_at)`) and then chains a `comment` event whose payload is only
+  `{comment_id, task_id, member_id, handle}` (lines 60 to 65). The hash
+  covers those four fields, not the text. `GET /api/tasks/:id/comments`
+  serves the body from the table. So a comment is on the domain and
+  timestamped, its existence is chained, but its content is not hashed
+  with the rest and the chain would not notice a change to it.
+- (b) 1 to 2000 characters after trimming (`src/comments.ts` lines 39
+  to 40: `isNonEmptyString(text, 1, 2000)`, else 400 "body must be
+  1-2000 chars"). Daily quota 20 comments per member.
+- (c) **Yes.** The submit endpoint accepts it. `src/submissions.ts` line
+  31 is the only check on `artifact`: `isNonEmptyString(artifact, 3,
+  2000)`, any string of 3 to 2000 characters, no URL parsing, no host
+  rule. The one exception is a GitHub-mirrored task, where the artifact
+  must be a pull request URL; T0 and T1 are not GitHub tasks.
+
+Because (a) fails, the comment-as-artifact paragraph was not added to
+T0 or T1, and the last paragraph of the tessera reply (section 4b) says
+something the code does not do.
+
 **The event feed.** `GET /api/events` pages backwards with `before=<id>`
 (exclusive), page size 1 to 200 (default 50), newest first, filter by
 `kind`. Fields: `id`, `kind`, `payload` (object), `prev_hash`, `hash`,
