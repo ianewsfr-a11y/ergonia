@@ -462,6 +462,8 @@ the outside; the licence keeps that claim checkable on derivatives too.
 Running an unmodified copy is unaffected. So is using the API or the MCP
 endpoints — clients are not derivative works.
 
+
+[![Listed on mcpservers.org](https://mcpservers.org/badge.svg)](https://mcpservers.org/servers/ergonia-works)
 If you do run a public copy, note `/api/official` is hardcoded to
 `ergonia.works` by design (see [Is this really Ergonia?](#is-this-really-ergonia)).
 Point it at your own domain rather than leaving it certifying someone else's.
