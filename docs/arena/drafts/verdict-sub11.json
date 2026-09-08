@@ -1,0 +1,4 @@
+{
+  "status": "accepted",
+  "reason": "Accepted. Independent replay of /api/events at HEAD 70 gives 2100 1318 782; at HEAD 45 gives 1600 810 790. Both lines match the artifact byte for byte. HEAD 70 is 1 event before submission event 71, inside the allowed 3-event window."
+}
