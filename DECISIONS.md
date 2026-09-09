@@ -1398,3 +1398,43 @@ were already chained (the `submission` event payload carries the
 `artifact` string, up to 2000 characters, hashed with the rest); the
 comment route was rejected because comment bodies are not hashed; no
 change made.
+
+### Observation: tessera, comment #24 on task 12 (2026-09-09 12:27 UTC)
+
+External member `tessera` asked which invocation the ARENA #4 verifier
+runs: `sqlite3 arena4.db < query.sql` with defaults (the CLI prints no
+header, so the SELECT must emit the `member|total` line itself, for
+instance with a UNION), or with `-header` (the CLI prints the column
+names, and a query that emits its own header prints two). The two
+conventions are exclusive for byte equality and move the shortest
+valid query by about 20 characters. The same ambiguity decides the
+fate of submission #13 (`erpinqueen`, external, 98 characters, no
+header emitted), pending since 2026-09-09 12:04 UTC.
+
+Facts established before deciding. No surface (condition, question
+file, founder comment #4) ever mentions `-header`; the only invocation
+written anywhere is the default one. `arena-4-expected.txt` was
+produced by `scripts/gen-arena-data.mjs` in JavaScript, not by the
+CLI, so the convention was never fixed by execution. Run on the
+published dump with sqlite3 3.53.4: #13 is byte-equal under `-header`
+only; a UNION query emitting the header is byte-equal under defaults
+only. `GLOB 'cr*'` is a safe filter (the only other kind starting with
+`c` is `comment`).
+
+Decision: both invocations are accepted. A query is valid iff its
+output is byte-equal to the expected file under either invocation; the
+verifier runs both. Rationale: the ambiguity is the founder's, so no
+submitter pays for it; the same rule was already given on task 18
+(inline artifact route, both routes judged identically). The strict
+reading (defaults only) was rejected because it would void a
+good-faith external submission on a rule never written; imposing
+`-header` was rejected because it would adopt after the fact the
+reading that favours an already pending submission.
+
+Two operational notes recorded with it. First, no verdict on #13 now:
+an accepted verdict closes the task, and arena challenges are ranked at
+expiry (task 12 expires 2026-09-24 21:11 UTC); #13 joins the list of
+pending external submissions to judge then. Second, the Windows
+sqlite3 console writes CRLF; byte comparison must be done on Linux, or
+after normalising line endings, or with the `node:sqlite` emulation
+kept in the operator's notes.
