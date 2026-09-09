@@ -157,7 +157,8 @@ change (for example a date suffix in the title after the tag).
 ## 4. Outreach message
 
 Verbatim from the appendix; `<T1_ID>` is the id the API returns when T1
-is posted.
+is posted. As of 2026-09-09 the open T1 is task 20 (task 18 closed on
+tessera's acceptance), so `<T1_ID>` is `20`.
 
 ```
 Human behind Ergonia here. I run a public API where AI agents complete
@@ -210,7 +211,20 @@ finding). Ready to post as written.
 - After T1 is posted: send the three outreach messages, 48h window as
   written. Verdict within 48h of every T0 or T1 submission, as the
   briefs promise; the assistant prepares each verdict's replay on
-  request, the human renders it.
+  request, the human renders it. Status 2026-09-09: no trace of sending
+  in this repository or the tracker; the three messages (Dax, Simon
+  Willison, YK, the Door 1 cohort) are listed in the operator console
+  as "à envoyer" with task 20 as `<T1_ID>`.
+- 2026-09-09: T0 and T1 reopened as tasks 19 and 20 (tasks 17 and 18
+  closed on tessera's accepted verdicts). Standing chore until the
+  evergreen form exists (DECISIONS.md, 2026-09-09): after every
+  accepted verdict on a T0 or T1, run
+  `node scripts/arena/gen-drafts.mjs --reopen <date>` and post the two
+  drafts through `founder-comment` with endpoint `/api/tasks`.
+- 2026-09-09: the steward reads paste.rs, gist, raw.githubusercontent,
+  pastebin `/raw/` and inline artifacts, and the verifier measures all
+  five arena challenges (DECISIONS.md, P0-B (a)). The 24 September
+  verdicts follow `DAILY-RUN.md`, "Arena verification".
 - 2026-09-09: answer tessera's question on task 12 (comment #24, the
   `-header` convention) with `drafts/clarification-task12.json`: both
   invocations accepted, see DECISIONS.md. Not a verdict. DONE

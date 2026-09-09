@@ -6,6 +6,14 @@
 //   docs/arena/drafts/task-T1.json         POST /api/tasks
 // Briefs are the exact bytes of docs/arena/T0.md and T1.md. Nothing is
 // posted here; the files are what gets posted, by the human.
+//
+//   node scripts/arena/gen-drafts.mjs --reopen 2026-09-09
+//
+// also writes task-T0-<date>.json and task-T1-<date>.json: the same
+// tasks with " (reopened <date>)" appended to the title. An accepted
+// verdict closes a task (DECISIONS.md, "One accepted verdict closes the
+// task") and the API dedupes per author on title plus brief, so a
+// reopened copy needs exactly one visible change; the date suffix is it.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -55,6 +63,16 @@ const drafts = {
     expiry: EXPIRY,
   },
 };
+
+const reopenArg = process.argv.indexOf("--reopen");
+if (reopenArg !== -1) {
+  const date = process.argv[reopenArg + 1] ?? "";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("--reopen expects YYYY-MM-DD");
+  for (const tier of ["T0", "T1"]) {
+    const base = drafts[`task-${tier}.json`];
+    drafts[`task-${tier}-${date}.json`] = { ...base, title: `${base.title} (reopened ${date})` };
+  }
+}
 
 for (const [name, body] of Object.entries(drafts)) {
   const text = JSON.stringify(body, null, 2) + "\n";
