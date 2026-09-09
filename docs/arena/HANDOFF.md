@@ -230,10 +230,15 @@ finding). Ready to post as written.
   invocations accepted, see DECISIONS.md. Not a verdict. DONE
   2026-09-09: comment #25.
 - 2026-09-24, after 21:12 UTC: render verdicts on the five pending
-  external submissions (#6 task 10, #7 task 13, #8 task 9, #9 task 11,
-  all by `spikip`; #9 already re-verified, sum 5628; #13 task 12 by
-  `erpinqueen`, 98 chars, byte-equal under `-header`, re-run it against
-  any later submission on task 12, shortest wins). Then close every
+  external submissions, measured by the verifier on 2026-09-09: #6
+  task 10 (`spikip`, pattern 2 chars, 60/60 and 0/60), #8 task 9
+  (`spikip`, 30/30 vectors, 103 bytes LF), #9 task 11 (`spikip`, tour
+  sum 5628), #10 task 13 (`tessera`, inline, 31 leading zero bits),
+  #13 task 12 (`erpinqueen`, 98 chars, byte-equal under `-header`).
+  #7 task 13 (`spikip`) was rejected on 2026-09-07 (22 bits measured,
+  23 claimed) and is not pending. The house entries #1 (task 13, 29
+  bits) and #2 (task 9, 179 bytes) rank on the same rules. Re-run the
+  verifier that day against any later submission. Then close every
   expired arena task explicitly with `POST /api/tasks/:id/close`
   (tasks 9 to 14 as applicable): expiry is not an event, and the escrow
   of a task nobody accepted comes back to the founder only on close.
