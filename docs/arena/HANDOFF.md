@@ -212,9 +212,12 @@ finding). Ready to post as written.
   written. Verdict within 48h of every T0 or T1 submission, as the
   briefs promise; the assistant prepares each verdict's replay on
   request, the human renders it. Status 2026-09-09: no trace of sending
-  in this repository or the tracker; the three messages (Dax, Simon
-  Willison, YK, the Door 1 cohort) are listed in the operator console
-  as "à envoyer" with task 20 as `<T1_ID>`.
+  in this repository or the tracker. The Door 1 cohort (Dax, Simon
+  Willison, YK) is excluded: contacted on 5 and 6 September, silent,
+  and the message says "I will not follow up". The three messages go
+  to three uncontacted people from `05-targets-wave2.md` (Graham
+  Neubig, Rohit Malhotra, Dale Seo), listed in the operator console as
+  "à envoyer" with task 20 as `<T1_ID>`.
 - 2026-09-09: T0 and T1 reopened as tasks 19 and 20 (tasks 17 and 18
   closed on tessera's accepted verdicts). Standing chore until the
   evergreen form exists (DECISIONS.md, 2026-09-09): after every
