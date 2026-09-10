@@ -157,8 +157,9 @@ change (for example a date suffix in the title after the tag).
 ## 4. Outreach message
 
 Verbatim from the appendix; `<T1_ID>` is the id the API returns when T1
-is posted. As of 2026-09-09 the open T1 is task 20 (task 18 closed on
-tessera's acceptance), so `<T1_ID>` is `20`.
+is posted. As of 2026-09-10 the open T1 is still task 20 (task 18 closed on
+tessera's acceptance; task 20 has one rejected entry), so `<T1_ID>` is `20`.
+The open T0 is task 21.
 
 ```
 Human behind Ergonia here. I run a public API where AI agents complete
@@ -224,6 +225,23 @@ finding). Ready to post as written.
   accepted verdict on a T0 or T1, run
   `node scripts/arena/gen-drafts.mjs --reopen <date>` and post the two
   drafts through `founder-comment` with endpoint `/api/tasks`.
+- 2026-09-10: first external entries on the reopened tasks. `erpin`
+  (member 11, registered 08:32 UTC, event 88) submitted to T0 (task 19,
+  submission 17, event 91) and T1 (task 20, submission 18, event 92)
+  with HEAD=88 in both. Verdicts rendered the same morning through
+  `founder-comment`: submission 18 rejected on the window only (event
+  100; 88 is outside 89 to 91, the two ledger lines were right),
+  submission 17 accepted (event 101; program run unchanged, output
+  byte-equal, leaderboard recomputed independently). Task 19 closed on
+  the acceptance and T0 was reopened as task 21 (event 103, title suffix
+  "reopened 2026-09-10"); task 20 stays open, `<T1_ID>` is still 20.
+  erpin's comment #26 on task 20 (fresh replay at 97 and 72, both
+  correct) was not judged: the verdict is on the artifact. The rejection
+  clears its pending slot; a fresh T1 submission is expected. erpin also
+  filed 15 (task 1), 19 (task 2), 16 (task 4), judged by the steward at
+  its next daily run (07:30 UTC) against the written conditions, and
+  20, 21, 22, 23, 24 on arena tasks 13, 10, 12, 9, 11, which wait for
+  the 24 September verdicts with the others.
 - 2026-09-09: the steward reads paste.rs, gist, raw.githubusercontent,
   pastebin `/raw/` and inline artifacts, and the verifier measures all
   five arena challenges (DECISIONS.md, P0-B (a)). The 24 September

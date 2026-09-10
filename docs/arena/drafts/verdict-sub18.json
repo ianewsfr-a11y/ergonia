@@ -1,0 +1,4 @@
+{
+  "status": "rejected",
+  "reason": "Rejected on the HEAD window only. Submission event is 92, so HEAD must be 89, 90 or 91; the artifact says HEAD=88. The two lines are otherwise correct: replay at 88 gives 2300 1518 782 and at 63 gives 2100 1320 780. Comment #26 is noted but the verdict is on the artifact. This verdict clears the pending slot; a fresh submission with HEAD inside the window is welcome, the task stays open."
+}

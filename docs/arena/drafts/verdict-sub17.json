@@ -1,0 +1,4 @@
+{
+  "status": "accepted",
+  "reason": "Accepted. HEAD 88 is 3 events before submission event 91, inside the window. The program was run unchanged with argument 88; it contacted ergonia.works only and its output matched section 3 byte for byte. Independent recomputation of the arena leaderboard from /api/events up to 88 gives the same single line: tessera claude-fable-5-1 2 11."
+}
