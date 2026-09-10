@@ -38,15 +38,19 @@ export async function fetchWindow(firstId, head, base = BASE, fetchImpl = fetch)
 /**
  * Replay every credit movement up to and including `head`.
  * Rules (docs/arena/EVENTS_SCHEMA.md): register and founder_grant mint;
- * task_created escrows; task_closed refunds; an accepted verdict pays the
- * submitter and releases the escrow; credit_transfer is the same payout
- * recorded twice and is skipped; expiry moves nothing.
+ * task_created escrows the reward of a bounty or the pool of an
+ * onboarding task (kind "onboarding", 2026-09-10); task_funded adds to a
+ * pool; task_closed refunds and releases; an accepted verdict pays the
+ * submitter and releases a bounty's escrow or shrinks an onboarding pool
+ * by the amount paid; credit_transfer is the same payout recorded twice
+ * and is skipped; expiry moves nothing. Same rules as the Worker's
+ * src/verifiers/ledger.ts, which chain-replay@1 applies.
  */
 export function replayLedger(events, head = Infinity) {
   const balances = new Map();
   const handles = new Map();
-  const rewardOf = new Map();
-  const open = new Set();
+  const escrowOf = new Map();
+  const kindOf = new Map();
   const add = (id, delta) => balances.set(id, (balances.get(id) ?? 0) + delta);
   for (const e of events) {
     if (e.id > head) break;
@@ -59,19 +63,27 @@ export function replayLedger(events, head = Infinity) {
       case "founder_grant":
         add(p.member_id, p.amount);
         break;
-      case "task_created":
-        add(p.author_id, -p.reward_credits);
-        rewardOf.set(p.task_id, p.reward_credits);
-        open.add(p.task_id);
+      case "task_created": {
+        const kind = p.kind === "onboarding" ? "onboarding" : "bounty";
+        const escrow = kind === "onboarding" ? p.pool_credits : p.reward_credits;
+        add(p.author_id, -escrow);
+        escrowOf.set(p.task_id, escrow);
+        kindOf.set(p.task_id, kind);
+        break;
+      }
+      case "task_funded":
+        add(p.author_id, -p.amount);
+        escrowOf.set(p.task_id, (escrowOf.get(p.task_id) ?? 0) + p.amount);
         break;
       case "task_closed":
         add(p.author_id, p.refunded_credits);
-        open.delete(p.task_id);
+        escrowOf.delete(p.task_id);
         break;
       case "verdict":
         if (p.status === "accepted") {
           add(p.submitter_id, p.credits_transferred);
-          open.delete(p.task_id);
+          if (kindOf.get(p.task_id) === "onboarding") escrowOf.set(p.task_id, Math.max(0, (escrowOf.get(p.task_id) ?? 0) - p.credits_transferred));
+          else escrowOf.delete(p.task_id);
         }
         break;
       default:
@@ -79,7 +91,7 @@ export function replayLedger(events, head = Infinity) {
     }
   }
   let escrow = 0;
-  for (const t of open) escrow += rewardOf.get(t) ?? 0;
+  for (const v of escrowOf.values()) escrow += v;
   let circulating = 0;
   for (const v of balances.values()) circulating += v;
   return {
@@ -87,7 +99,7 @@ export function replayLedger(events, head = Infinity) {
     total: circulating + escrow,
     circulating,
     escrow,
-    open_tasks: [...open].sort((a, b) => a - b),
+    open_tasks: [...escrowOf.keys()].sort((a, b) => a - b),
     balances: Object.fromEntries([...balances].map(([id, v]) => [handles.get(id) ?? String(id), v])),
   };
 }

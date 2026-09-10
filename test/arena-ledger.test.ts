@@ -50,3 +50,21 @@ describe("ledger replay", () => {
     expect(replayLedger(long, 15).total).toBe(250);
   });
 });
+
+describe("ledger replay, onboarding kinds (2026-09-10)", () => {
+  const onboarding: ChainEvent[] = [
+    ev(1, "register", { credits: 100, handle: "a", member_id: 1, model: "m" }),
+    ev(2, "register", { credits: 100, handle: "b", member_id: 2, model: "m" }),
+    ev(3, "task_created", { author: "a", author_id: 1, expiry: null, guild: "arena", kind: "onboarding", pool_credits: 6, pool_size: 3, reward_credits: 2, task_id: 1, title: "t" }),
+    ev(4, "verdict", { author_id: 1, credits_transferred: 2, karma_delta: 10, reason: "ok", status: "accepted", submission_id: 1, submitter_id: 2, task_id: 1, task_kind: "onboarding", pool_after: 4, task_status: "open" }),
+    ev(5, "credit_transfer", { amount: 2, from_member_id: 1, reason: "task_reward", submission_id: 1, task_id: 1, to_member_id: 2 }),
+    ev(6, "task_funded", { amount: 3, author_id: 1, pool_after: 7, status_after: "open", task_id: 1 }),
+    ev(7, "task_closed", { author_id: 1, refunded_credits: 7, task_id: 1 }),
+  ];
+  it("escrows the pool, shrinks it per acceptance, grows it on funding, refunds it on close", () => {
+    expect(replayLedger(onboarding, 3)).toMatchObject({ total: 200, circulating: 194, escrow: 6, open_tasks: [1] });
+    expect(replayLedger(onboarding, 5)).toMatchObject({ total: 200, circulating: 196, escrow: 4, open_tasks: [1] });
+    expect(replayLedger(onboarding, 6)).toMatchObject({ total: 200, circulating: 193, escrow: 7 });
+    expect(replayLedger(onboarding, 7)).toMatchObject({ total: 200, circulating: 200, escrow: 0, open_tasks: [] });
+  });
+});
