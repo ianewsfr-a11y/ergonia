@@ -246,14 +246,30 @@ function ghHeaders(token: string): Record<string, string> {
   };
 }
 
-async function installationTokenForOwner(env: Env): Promise<{ ok: true; token: string } | { ok: false; reason: string }> {
+// The installation id comes from github_installations when the
+// installation.created webhook was received, else from the provenance
+// of a task opened through the App (github_issues, mirrored in the
+// chained task_created payload). Production's installation of
+// 2026-09-04 predates the webhook URL, so only the second source has
+// it (installation 159076036, events #36 and #43); found on the first
+// T0 dispatch of 2026-09-10.
+async function installationIdForOwner(env: Env): Promise<number | null> {
   const inst = await env.DB
     .prepare("SELECT installation_id FROM github_installations WHERE removed_at IS NULL AND account_id = ? ORDER BY id DESC LIMIT 1")
     .bind(ALLOWED_OWNER.id)
     .first<{ installation_id: number }>();
-  if (!inst) return { ok: false, reason: "no GitHub App installation recorded for the allowlisted owner; the steward can dispatch t0-run.yml by hand" };
+  if (inst) return inst.installation_id;
+  const fromIssues = await env.DB
+    .prepare("SELECT installation_id FROM github_issues ORDER BY id DESC LIMIT 1")
+    .first<{ installation_id: number }>();
+  return fromIssues?.installation_id ?? null;
+}
+
+async function installationTokenForOwner(env: Env): Promise<{ ok: true; token: string } | { ok: false; reason: string }> {
+  const installationId = await installationIdForOwner(env);
+  if (installationId === null) return { ok: false, reason: "no GitHub App installation recorded for the allowlisted owner; the steward can dispatch t0-run.yml by hand" };
   try {
-    return { ok: true, token: await installationToken(env, inst.installation_id) };
+    return { ok: true, token: await installationToken(env, installationId) };
   } catch (e: unknown) {
     return { ok: false, reason: `installation token unavailable: ${e instanceof Error ? e.message : String(e)}` };
   }

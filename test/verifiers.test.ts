@@ -407,6 +407,20 @@ describe("leaderboard-replay@1", () => {
     expect(noIntake.status).toBe(409);
   });
 
+  it("with no installations row, the installation id of a task opened through the App is used (production, 2026-09-10)", async () => {
+    const { subId, taskId } = await arenaHistory();
+    // The arena task of arenaHistory() is task 1: give it the GitHub provenance a labelled issue would have left.
+    await env.DB.prepare(
+      "INSERT INTO github_issues (installation_id, repo_id, repo_full_name, issue_number, issue_url, base_branch, required_checks, task_id, delivery_id, opened_at) VALUES (?, 1348332583, 'ianewsfr-a11y/ergonia', 1, 'https://github.com/ianewsfr-a11y/ergonia/issues/1', 'main', '[]', 1, 'd-1', ?)",
+    ).bind(INSTALLATION_ID, Date.now()).run();
+    const c = await register("candidate");
+    fetchMock.get("https://api.github.com").intercept({ path: DISPATCH, method: "POST" }).reply(204);
+    const head = await lastEventId();
+    const sub = await api("POST", "/api/submissions", { token: c.secret, body: { task_id: taskId, artifact: artifactFor(head, `arena-worker claude-opus-4-7 1 ${subId}`) } });
+    expect(sub.body.submission.status).toBe("pending");
+    expect((await lastEvent("verifier_check")).payload).toMatchObject({ stage: "dispatch", result: "dispatched" });
+  });
+
   it("without an App installation the dispatch fails visibly, the submission stays pending, and /run dispatches later", async () => {
     const { founder, subId, taskId } = await arenaHistory();
     const c = await register("candidate");
