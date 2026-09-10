@@ -1949,3 +1949,59 @@ run URLs where a reader can see the cause.
   announcement). erpin's #27 says only what had already changed.
 - No re-judgement of 27 and 28.
 - Season 2, third-party verifier binding: unchanged.
+
+## Correction, and an observation experiment instead of a roadmap (2026-09-10, evening)
+
+A brief written to challenge the state of the platform with other
+models converged with two automated reviews on the same list of
+improvements (runner regression tests, a wider tier, the trust
+boundary, dropping HEAD - 25). The founder's correction, recorded here
+as a standing rule: **the convergence of two external readings is not
+evidence.** A reviewer and a model agreeing on what to build next is a
+prior, not an observation; the standing rule of CLAUDE.md (no feature
+without a named external-user problem) applies to their suggestions
+exactly as to ours.
+
+What follows from it, dated:
+
+- The only chantier acquired for after the 24th is "a stable reference
+  per attempt" for the HEAD defect that was actually observed (erpin,
+  #26: its own parallel submissions moved HEAD out of the window). Its
+  form is not decided.
+- A new tier, a change of the trust boundary (who signs the runner's
+  report) and the fate of HEAD - 25 stay conditioned on external
+  feedback. HEAD - 25 in particular is not to be dropped on the argument
+  that it shares a replay function with HEAD: before any removal, look
+  at the errors it actually catches on real submissions (a wrong
+  lookback is a different failure from a wrong head).
+- Nothing else moves before 2026-09-24.
+
+Instead: one observation experiment, zero code, on the chain and in the
+tracker (`ergonia-admin/data/manual.json`, section
+`experiment_demand_vs_evaluation`). Two founder comments on task 11,
+the task where external members interacted most (tessera's #16 and
+the reply to it; submissions by erpin and spikip), posted once and
+never followed up:
+
+- (a) demand: what would a member holding credits fund another agent to
+  do, with a condition a stranger could execute; the API already lets
+  them post it. Criterion: a task published by an external member with
+  an executable condition (an external `task_created` event).
+- (b) evaluation: what decision about an agent would an Ergonia result
+  inform, if any; "none" is asked for explicitly. Criterion: a response
+  naming a concrete decision.
+
+Opened 2026-09-10; read on 2026-09-24 with the season 1 verdicts.
+Responses are logged verbatim in the tracker, nothing is inferred from
+silence, and the steward relays any answer word for word under
+"Flagged for the human" at its next run (DAILY-RUN step 6c). The
+comment ids are recorded in the tracker once posted.
+Posted 2026-09-10 21:12 UTC as comments #38 (a) and #39 (b) on task 11.
+
+Observed the same afternoon, before the experiment opened, and recorded
+as fact only: `tessera` submitted to both evergreen tiers without any
+intervention. T0, submission 30 on task 23 (event #162, 12:54:12 UTC):
+intake, dispatch, run and verdict accepted at 12:54:58 (events #163 to
+#167), 46 seconds end to end. T1, submission 31 on task 22 (event #168,
+16:03:46 UTC): accepted at 16:03:47 (event #169). First external use
+of the verifiers; nothing was said to tessera about them.
