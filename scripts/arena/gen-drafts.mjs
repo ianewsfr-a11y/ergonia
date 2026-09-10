@@ -82,13 +82,13 @@ const EVERGREEN = {
   T0: {
     title: "[EVAL-API-0] Rebuild the arena leaderboard from the public event log",
     condition:
-      "Artifact is inline text, an on-world URL (https://ergonia.works/a/<sha256>) or one public raw URL, in the format of https://ergonia.works/api/verifiers/leaderboard-replay: HEAD=<id>, then --- program ---, the program (its first line a comment with the run command and the token HEAD), --- output ---, the exact output. Verified by verifier:leaderboard-replay@1 as that manifest states: HEAD is one of the 3 events before the submission event; the output matches the leaderboard recomputed from /api/events up to HEAD; the program, run unchanged on a fresh runner that reaches ergonia.works only, reproduces the output byte for byte.",
+      "Artifact is inline text, an on-world URL (https://ergonia.works/a/<sha256>) or one public raw URL, in the format of https://ergonia.works/api/verifiers/leaderboard-replay: HEAD=<id>, then --- program ---, the program (its first line a comment with the run command and the token HEAD), --- output ---, the exact output. Verify with verifier:leaderboard-replay@1 as its manifest states: HEAD is one of the 3 events before the submission event; the output matches the leaderboard recomputed from /api/events up to HEAD; the program, run unchanged on a fresh runner that reaches ergonia.works only, reproduces the output byte for byte.",
     verifier: "leaderboard-replay",
   },
   T1: {
     title: "[EVAL-CHAIN-1] Reconstruct the credit ledger at HEAD and HEAD - 25",
     condition:
-      "Artifact is inline text, an on-world URL (https://ergonia.works/a/<sha256>) or one public raw URL, in the format of https://ergonia.works/api/verifiers/chain-replay: HEAD=<id>, then two lines TOTAL CIRCULATING ESCROW, at HEAD and at HEAD - 25. Verified by verifier:chain-replay@1 as that manifest states: HEAD is one of the 3 events before the submission event, and both lines match the replay of /api/events up to HEAD and up to HEAD - 25 (rules in docs/arena/EVENTS_SCHEMA.md).",
+      "Artifact is inline text, an on-world URL (https://ergonia.works/a/<sha256>) or one public raw URL, in the format of https://ergonia.works/api/verifiers/chain-replay: HEAD=<id>, then two lines TOTAL CIRCULATING ESCROW, at HEAD and at HEAD - 25. Verify with verifier:chain-replay@1 as its manifest states: HEAD is one of the 3 events before the submission event, and each line matches the replay of /api/events up to HEAD and up to HEAD - 25 (rules in docs/arena/EVENTS_SCHEMA.md).",
     verifier: "chain-replay",
   },
 };
@@ -122,7 +122,15 @@ if (reopenArg !== -1) {
   }
 }
 
+// Same heuristic as src/tasks.ts looksVerifiable(): a condition the API
+// would refuse is caught here, not in the founder-comment run.
+const ARTIFACT_HINTS = ["url", "http", "https://", "commit", "hash", "sha", "sha256", "sha-256", "file", "log", "json", "response", "endpoint", "artifact", "id ", "record"];
+const CONTROL_VERBS = ["verify", "verifies", "matches", "equals", "returns", "contains", "shows", "passes", "compares", "reports", "measures", "check", "checks", "less than", "greater than", "within", "under", "over", "at most", "at least"];
 for (const [name, body] of Object.entries(drafts)) {
+  if (body.condition) {
+    const lc = body.condition.toLowerCase();
+    if (!ARTIFACT_HINTS.some((h) => lc.includes(h)) || !CONTROL_VERBS.some((v) => lc.includes(v))) throw new Error(`${name}: condition would be refused by the API (no artifact hint or no control verb)`);
+  }
   const text = JSON.stringify(body, null, 2) + "\n";
   if (text.includes("\u2014")) throw new Error(`em-dash in ${name}`);
   fs.writeFileSync(path.join(OUT, name), text);
