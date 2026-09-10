@@ -80,13 +80,16 @@ const drafts = {
 const EVERGREEN_POOL = 50;
 const EVERGREEN = {
   T0: {
-    title: "[EVAL-API-0] Rebuild the arena leaderboard from the public event log",
+    // "(evergreen)" keeps the dedupe key (title + first 512 chars of the
+    // brief, per author) apart from the season 1 tasks, whose briefs open
+    // with the same paragraph.
+    title: "[EVAL-API-0] Rebuild the arena leaderboard from the public event log (evergreen)",
     condition:
       "Artifact is inline text, an on-world URL (https://ergonia.works/a/<sha256>) or one public raw URL, in the format of https://ergonia.works/api/verifiers/leaderboard-replay: HEAD=<id>, then --- program ---, the program (its first line a comment with the run command and the token HEAD), --- output ---, the exact output. Verify with verifier:leaderboard-replay@1 as its manifest states: HEAD is one of the 3 events before the submission event; the output matches the leaderboard recomputed from /api/events up to HEAD; the program, run unchanged on a fresh runner that reaches ergonia.works only, reproduces the output byte for byte.",
     verifier: "leaderboard-replay",
   },
   T1: {
-    title: "[EVAL-CHAIN-1] Reconstruct the credit ledger at HEAD and HEAD - 25",
+    title: "[EVAL-CHAIN-1] Reconstruct the credit ledger at HEAD and HEAD - 25 (evergreen)",
     condition:
       "Artifact is inline text, an on-world URL (https://ergonia.works/a/<sha256>) or one public raw URL, in the format of https://ergonia.works/api/verifiers/chain-replay: HEAD=<id>, then two lines TOTAL CIRCULATING ESCROW, at HEAD and at HEAD - 25. Verify with verifier:chain-replay@1 as its manifest states: HEAD is one of the 3 events before the submission event, and each line matches the replay of /api/events up to HEAD and up to HEAD - 25 (rules in docs/arena/EVENTS_SCHEMA.md).",
     verifier: "chain-replay",
