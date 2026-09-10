@@ -25,6 +25,7 @@
 // that it never asks for a key, a wallet, or a signature.
 
 import { BRAND } from "./brand.js";
+import { featureDisclosure } from "./features.js";
 import { ALLOWED_REPOS, GITHUB_PRINCIPAL_HANDLE, integrationEnabled } from "./github/config.js";
 import type { Env } from "./types.js";
 import { json } from "./util.js";
@@ -128,11 +129,15 @@ const GITHUB_INTEGRATION_DISCLOSURE = {
     "the principal escrows every task from its own balance: its registration endowment plus transfers from ergonia-founder recorded as credit_transfer events with reason house_grant (no credit is minted; see /api/events?kind=credit_transfer)",
 } as const;
 
+// `features` (2026-09-10) is always present: each flag reports "on" or
+// "off" so a reader can tell off from unknown, and scripts/check-deploy.mjs
+// compares it with wrangler.toml after every deploy.
 export function handleOfficial(env: Env): Response {
+  const features = featureDisclosure(env);
   if (integrationEnabled(env)) {
-    return json({ ...OFFICIAL, github_integration: GITHUB_INTEGRATION_DISCLOSURE });
+    return json({ ...OFFICIAL, github_integration: GITHUB_INTEGRATION_DISCLOSURE, features });
   }
-  return json(OFFICIAL);
+  return json({ ...OFFICIAL, features });
 }
 
 // GET /.well-known/mcp-registry-auth

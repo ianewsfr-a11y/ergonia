@@ -4,16 +4,25 @@
 //   - POST /api/submissions/:id/verdict: only the task author. Accepted
 //     transfers the escrow to the submitter and grants +10 karma.
 //     Rejected leaves credits untouched but requires a public reason.
+//     The transition itself lives in verdicts.ts, shared with the
+//     executable verifiers.
+//
+// 2026-09-10: a task bound to an executable verifier (tasks.verifier) is
+// judged right after its submission event is chained, in this request
+// (chain-replay@1) or by a dispatched job (leaderboard-replay@1). An
+// onboarding task accepts each member once.
 
 import { appendEvent } from "./chain.js";
+import { verifierNameOf, verifiersEnabled } from "./features.js";
 import type { PullRequestView } from "./github/api.js";
 import { githubIssueForTask } from "./github/issue.js";
 import { afterGithubSubmission, validateGithubSubmission } from "./github/verifier.js";
 import { consumeQuota, hasQuota } from "./quotas.js";
 import { taskById } from "./tasks.js";
-import type { AuthContext, Env, SubmissionRow, SubmissionStatus } from "./types.js";
-import { KARMA_ON_ACCEPT } from "./types.js";
+import type { AuthContext, Env, SubmissionRow } from "./types.js";
 import { error, isNonEmptyString, json, nowMs, readJson } from "./util.js";
+import { applyVerdict } from "./verdicts.js";
+import { runVerifierAtIntake } from "./verifiers/index.js";
 
 interface CreateSubmissionBody {
   task_id?: unknown;
@@ -33,6 +42,7 @@ export async function handleCreateSubmission(env: Env, ctx: AuthContext, request
 
   const task = await taskById(env, taskId);
   if (!task) return error(404, "task not found");
+  if (task.status === "paused") return error(409, "task is paused (unfunded): its pool cannot pay one more reward until the author funds it");
   if (task.status !== "open") return error(409, `task is ${task.status}`);
   if (task.author_id === ctx.member.id) return error(403, "authors cannot submit to their own tasks");
   if (task.expiry !== null && task.expiry * 1000 < nowMs()) {
@@ -46,6 +56,16 @@ export async function handleCreateSubmission(env: Env, ctx: AuthContext, request
     .bind(taskId, ctx.member.id)
     .first<{ id: number }>();
   if (openOne) return error(409, "you already have a pending submission on this task");
+
+  // An onboarding task is passed once per member: after an acceptance,
+  // further submissions are refused (no quota consumed).
+  if (task.kind === "onboarding") {
+    const passed = await env.DB
+      .prepare("SELECT id FROM submissions WHERE task_id = ? AND member_id = ? AND status = 'accepted' LIMIT 1")
+      .bind(taskId, ctx.member.id)
+      .first<{ id: number }>();
+    if (passed) return error(409, `you already passed this task (submission ${passed.id} accepted); an onboarding task is accepted once per member`);
+  }
 
   // GitHub-mirrored task (G1 dogfood): the artifact must be a pull
   // request on the target repository that references the issue. A
@@ -95,6 +115,12 @@ export async function handleCreateSubmission(env: Env, ctx: AuthContext, request
     await afterGithubSubmission(env, gh, id, ctx.member, githubPr);
   }
 
+  // Executable verifier bound to the task: judge now. The submission
+  // event above is the anchor of the HEAD window, so this must run
+  // after it is chained. A verifier failure leaves the row pending.
+  const verifier = verifiersEnabled(env) ? verifierNameOf(task.verifier) : null;
+  if (verifier) await runVerifierAtIntake(env, verifier, id);
+
   return json({ submission: await submissionById(env, id) }, { status: 201 });
 }
 
@@ -134,65 +160,16 @@ export async function handleVerdict(
   const task = await taskById(env, submission.task_id);
   if (!task) return error(404, "parent task not found");
   if (task.author_id !== ctx.member.id) return error(403, "only the task author can verdict");
-  if (task.status !== "open") return error(409, `task is ${task.status}`);
+  // A paused onboarding task can still reject (no funds needed) so a
+  // pending row is never stranded; accepting needs the pool funded.
+  if (task.status === "paused" && status === "accepted") return error(409, "task is paused (unfunded): fund the pool before accepting");
+  if (task.status !== "open" && task.status !== "paused") return error(409, `task is ${task.status}`);
 
-  // CLAIM THE TRANSITION FIRST, ATOMICALLY.
-  //
-  // The checks above are reads, and reads do not hold anything: two
-  // concurrent verdicts on the same submission both used to pass them and
-  // both paid out the escrow, minting credits. So the pending -> judged
-  // transition is now a single conditional UPDATE whose WHERE clause
-  // re-asserts every precondition. Exactly one concurrent caller can see
-  // `changes === 1`; that caller alone owns the payout.
-  const claim = await env.DB
-    .prepare(
-      `UPDATE submissions SET status = ?, verdict_reason = ?
-         WHERE id = ? AND status = 'pending'
-           AND EXISTS (SELECT 1 FROM tasks t WHERE t.id = submissions.task_id AND t.status = 'open')`,
-    )
-    .bind(status, reason, submissionId)
-    .run();
-  if (!claim.meta.changes) {
-    // Someone else judged it, or the task closed, between our read and here.
-    return error(409, "submission is no longer pending (or its task is no longer open)");
-  }
-
-  let transferred = 0;
-  if (status === "accepted") {
-    transferred = task.reward_credits;
-    // We hold the exclusive claim, so this pays out exactly once.
-    await env.DB.batch([
-      env.DB
-        .prepare("UPDATE members SET credits = credits + ?, karma = karma + ? WHERE id = ?")
-        .bind(transferred, KARMA_ON_ACCEPT, submission.member_id),
-      // Close the task on first acceptance — mirrors a bounty being paid out.
-      env.DB.prepare("UPDATE tasks SET status = 'closed' WHERE id = ?").bind(task.id),
-    ]);
-  }
-
-  await appendEvent(env, "verdict", {
-    submission_id: submissionId,
-    task_id: task.id,
-    author_id: ctx.member.id,
-    submitter_id: submission.member_id,
-    status,
-    reason,
-    credits_transferred: transferred,
-    karma_delta: status === "accepted" ? KARMA_ON_ACCEPT : 0,
-  });
-  if (status === "accepted") {
-    await appendEvent(env, "credit_transfer", {
-      from_member_id: task.author_id,
-      to_member_id: submission.member_id,
-      amount: transferred,
-      task_id: task.id,
-      submission_id: submissionId,
-      reason: "task_reward",
-    });
-  }
+  const applied = await applyVerdict(env, task, submission, status, reason);
+  if (!applied.ok) return error(409, applied.error);
 
   const fresh = await submissionById(env, submissionId);
-  return json({ submission: fresh, credits_transferred: transferred });
+  return json({ submission: fresh, credits_transferred: applied.transferred });
 }
 
 export async function submissionById(env: Env, id: number) {

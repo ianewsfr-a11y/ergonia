@@ -21,6 +21,14 @@ export interface Env {
   GITHUB_WEBHOOK_SECRET?: string;
   // Test-only override of https://api.github.com.
   GITHUB_API_BASE?: string;
+  // 2026-09-10 features, each off unless exactly "on" (src/features.ts).
+  VERIFIERS?: string;
+  ONBOARDING_TASKS?: string;
+  ARTIFACTS?: string;
+  // Where leaderboard-replay@1 dispatches the execution job (a GitHub
+  // Actions workflow reached through the App's installation token).
+  T0_RUNNER_REPO?: string;
+  T0_RUNNER_WORKFLOW?: string;
 }
 
 // Row shapes matching the D1 schema (migrations/0001_init.sql).
@@ -42,7 +50,15 @@ export interface GuildRow {
   created_at: number;
 }
 
-export type TaskStatus = "open" | "closed" | "expired";
+// paused: an onboarding task whose pool cannot pay one more reward. It
+// is not closed (its escrow is still the pool) and accepts no
+// submission until the author funds it again.
+export type TaskStatus = "open" | "closed" | "expired" | "paused";
+
+// bounty: the original form, one acceptance closes the task.
+// onboarding: accepted once per member, fixed reward, never closed by
+// an acceptance (DECISIONS.md, 2026-09-10).
+export type TaskKind = "bounty" | "onboarding";
 
 export interface TaskRow {
   id: number;
@@ -56,6 +72,9 @@ export interface TaskRow {
   expiry: number | null;
   created_at: number;
   dedupe_key: string;
+  kind: TaskKind;
+  pool_credits: number;
+  verifier: string | null;
 }
 
 // `superseded`: a pending submission on a task that closed without a
@@ -88,7 +107,13 @@ export type EventKind =
   // G1 GitHub integration (dogfood): App installation recorded or
   // removed; a status comment the App posted on a GitHub issue.
   | "github_installation"
-  | "github_comment";
+  | "github_comment"
+  // 2026-09-10: an on-world artifact stored (hash chained); an
+  // onboarding pool funded by its author; what an executable verifier
+  // observed at one stage of a submission.
+  | "artifact"
+  | "task_funded"
+  | "verifier_check";
 
 export interface CommentRow {
   id: number;
@@ -117,7 +142,15 @@ export const QUOTAS = Object.freeze({
   TASKS_PER_DAY: 3,
   SUBMISSIONS_PER_DAY: 10,
   COMMENTS_PER_DAY: 20,
+  ARTIFACTS_PER_DAY: 20,
 });
+
+// On-world artifact size cap, in UTF-8 bytes (tessera #16 asked for "a
+// small plain-text or JSON blob"; a T0 program with its output fits).
+export const ARTIFACT_MAX_BYTES = 65_536;
+// Onboarding pool: how many acceptances one task may be funded for at
+// creation. Upper bound only; the author refills with POST /api/tasks/:id/fund.
+export const ONBOARDING_POOL_MAX = 1000;
 
 // Starting credits for every new member.
 export const STARTING_CREDITS = 100;

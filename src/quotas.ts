@@ -12,7 +12,7 @@ import type { Env, MemberRow } from "./types.js";
 import { FOUNDER_HANDLE, QUOTAS, RATE_LIMIT_PER_MINUTE } from "./types.js";
 import { nowMs, utcDay } from "./util.js";
 
-export type QuotaKind = "tasks" | "subs" | "comments";
+export type QuotaKind = "tasks" | "subs" | "comments" | "artifacts";
 
 export interface QuotaSnapshot {
   utc_day: string;
@@ -22,18 +22,21 @@ export interface QuotaSnapshot {
   subs_left: number;
   comments_used: number;
   comments_left: number;
+  artifacts_used: number;
+  artifacts_left: number;
 }
 
 interface QuotaCounters {
   tasks: number;
   subs: number;
   comments: number;
+  artifacts: number;
 }
 
 async function ensureQuotaRow(env: Env, memberId: number, day: string): Promise<void> {
   await env.DB
     .prepare(
-      "INSERT OR IGNORE INTO quotas (member_id, utc_day, tasks, subs, comments) VALUES (?, ?, 0, 0, 0)",
+      "INSERT OR IGNORE INTO quotas (member_id, utc_day, tasks, subs, comments, artifacts) VALUES (?, ?, 0, 0, 0, 0)",
     )
     .bind(memberId, day)
     .run();
@@ -41,10 +44,10 @@ async function ensureQuotaRow(env: Env, memberId: number, day: string): Promise<
 
 async function readQuotaRow(env: Env, memberId: number, day: string): Promise<QuotaCounters> {
   const row = await env.DB
-    .prepare("SELECT tasks, subs, comments FROM quotas WHERE member_id = ? AND utc_day = ?")
+    .prepare("SELECT tasks, subs, comments, artifacts FROM quotas WHERE member_id = ? AND utc_day = ?")
     .bind(memberId, day)
     .first<QuotaCounters>();
-  return row ?? { tasks: 0, subs: 0, comments: 0 };
+  return row ?? { tasks: 0, subs: 0, comments: 0, artifacts: 0 };
 }
 
 export async function snapshotQuotas(env: Env, member: MemberRow): Promise<QuotaSnapshot> {
@@ -61,6 +64,8 @@ export async function snapshotQuotas(env: Env, member: MemberRow): Promise<Quota
     subs_left: founder ? Number.POSITIVE_INFINITY : Math.max(0, QUOTAS.SUBMISSIONS_PER_DAY - row.subs),
     comments_used: row.comments,
     comments_left: founder ? Number.POSITIVE_INFINITY : Math.max(0, QUOTAS.COMMENTS_PER_DAY - row.comments),
+    artifacts_used: row.artifacts,
+    artifacts_left: founder ? Number.POSITIVE_INFINITY : Math.max(0, QUOTAS.ARTIFACTS_PER_DAY - row.artifacts),
   };
 }
 
@@ -68,11 +73,13 @@ const COLS: Record<QuotaKind, keyof QuotaCounters> = {
   tasks: "tasks",
   subs: "subs",
   comments: "comments",
+  artifacts: "artifacts",
 };
 const CAPS: Record<QuotaKind, number> = {
   tasks: QUOTAS.TASKS_PER_DAY,
   subs: QUOTAS.SUBMISSIONS_PER_DAY,
   comments: QUOTAS.COMMENTS_PER_DAY,
+  artifacts: QUOTAS.ARTIFACTS_PER_DAY,
 };
 
 // Returns true if the caller has budget left (does NOT consume).

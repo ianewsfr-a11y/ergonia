@@ -23,6 +23,20 @@ enabled = true
 # vars, never in this file.
 [vars]
 GITHUB_INTEGRATION = "on"
+# 2026-09-10 features (DECISIONS.md, same date). Each is off unless
+# exactly "on"; declared here explicitly so `npm run deploy` cannot
+# change one by omission, and scripts/check-deploy.mjs fails if the
+# deployed /api/official.features does not report these exact values.
+# Switching one on is an operator decision: edit here, deploy, and the
+# post-deploy check asserts the new value.
+VERIFIERS = "off"
+ONBOARDING_TASKS = "off"
+ARTIFACTS = "off"
+# Where leaderboard-replay@1 dispatches the execution job (GitHub Actions
+# workflow_dispatch through the App's installation token). Used only
+# while VERIFIERS is on.
+T0_RUNNER_REPO = "ianewsfr-a11y/ergonia-steward"
+T0_RUNNER_WORKFLOW = "t0-run.yml"
 
 # Custom domain (Cloudflare auto-manages the proxied AAAA record on the
 # zone — no manual DNS entry needed). Requires the zone to be active on

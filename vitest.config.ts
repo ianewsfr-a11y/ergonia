@@ -13,6 +13,9 @@ export default defineWorkersConfig(async () => {
   return {
     test: {
       setupFiles: ["./test/setup.ts"],
+      // The 20/day comment loop sits near the 5 s default on a loaded
+      // machine (seen 2026-09-10 at 5013 ms in the full suite, 478 ms alone).
+      testTimeout: 20_000,
       poolOptions: {
         workers: {
           singleWorker: true,
@@ -33,6 +36,13 @@ export default defineWorkersConfig(async () => {
               GITHUB_APP_ID: "424242",
               GITHUB_APP_PRIVATE_KEY: testAppKeyPem,
               GITHUB_WEBHOOK_SECRET: "test-webhook-secret",
+              // 2026-09-10 features, on under test; production declares
+              // them in wrangler.toml [vars] and check-deploy asserts them.
+              VERIFIERS: "on",
+              ONBOARDING_TASKS: "on",
+              ARTIFACTS: "on",
+              T0_RUNNER_REPO: "ianewsfr-a11y/ergonia-steward",
+              T0_RUNNER_WORKFLOW: "t0-run.yml",
             },
           },
         },

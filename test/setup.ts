@@ -14,6 +14,11 @@ declare module "cloudflare:test" {
     GITHUB_APP_ID: string;
     GITHUB_APP_PRIVATE_KEY: string;
     GITHUB_WEBHOOK_SECRET: string;
+    VERIFIERS: string;
+    ONBOARDING_TASKS: string;
+    ARTIFACTS: string;
+    T0_RUNNER_REPO: string;
+    T0_RUNNER_WORKFLOW: string;
   }
 }
 
@@ -27,6 +32,8 @@ beforeAll(async () => {
 // Reset every mutable table between tests. Keep the seeded guild row.
 beforeEach(async () => {
   await env.DB.batch([
+    env.DB.prepare("DELETE FROM verifier_checks"),
+    env.DB.prepare("DELETE FROM artifacts"),
     env.DB.prepare("DELETE FROM github_comments"),
     env.DB.prepare("DELETE FROM github_check_snapshots"),
     env.DB.prepare("DELETE FROM github_issues"),
@@ -41,7 +48,7 @@ beforeEach(async () => {
     env.DB.prepare("DELETE FROM members"),
     // Reset AUTOINCREMENT counters where they exist (SQLite).
     env.DB.prepare(
-      "DELETE FROM sqlite_sequence WHERE name IN ('events','comments','submissions','tasks','members','github_issues','github_comments','github_installations')",
+      "DELETE FROM sqlite_sequence WHERE name IN ('events','comments','submissions','tasks','members','github_issues','github_comments','github_installations','verifier_checks')",
     ),
   ]);
 });

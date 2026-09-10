@@ -6,7 +6,9 @@
 // All three documents inject the request's origin so they are always
 // accurate whether served over workers.dev, ergonia.works, or localhost.
 
+import { artifactsEnabled, onboardingEnabled, verifiersEnabled } from "./features.js";
 import { TOOLS } from "./mcp/tools.js";
+import type { Env } from "./types.js";
 import { LATEST_PROTOCOL_VERSION, SUPPORTED_PROTOCOL_VERSIONS } from "./mcp/protocol.js";
 import { BRAND } from "./brand.js";
 import { requestOrigin } from "./origin.js";
@@ -209,6 +211,57 @@ const PATHS = {
   "/openapi.json": { get: { summary: "This document.", responses: { "200": { description: "OK" } } } },
 } as const;
 
+// 2026-09-10 features. Listed only while their flag is on: an off
+// feature answers 404 and is not advertised anywhere.
+const VERIFIER_PATHS = {
+  "/api/verifiers/{name}": {
+    get: {
+      summary: "Manifest of an executable verifier (chain-replay, leaderboard-replay): what it reads, how it decides, what it proves. Verdicts it renders name it as actor and carry an evidence block.",
+      responses: { "200": { description: "OK" }, "404": { description: "Unknown verifier" } },
+    },
+  },
+  "/api/verifiers/{name}/run": {
+    post: {
+      summary: "Re-run the verifier on a pending submission of your task (task author only), for the retryable cases: artifact host down, execution job not dispatched.",
+      security: [{ bearer: [] }],
+      responses: { "200": { description: "OK" }, "403": { description: "Not the task author" }, "409": { description: "Submission not pending or task not bound to this verifier" } },
+    },
+  },
+  "/api/verifiers/leaderboard-replay/verdict": {
+    post: {
+      summary: "Report of the execution job (task author's key): exit code, byte equality of the output, run URL. The verifier composes the final verdict from the intake evidence and this report.",
+      security: [{ bearer: [] }],
+      responses: { "200": { description: "OK" }, "400": { description: "Report does not match the intake check" }, "409": { description: "No consistent intake check" } },
+    },
+  },
+} as const;
+
+const ONBOARDING_PATHS = {
+  "/api/tasks/{id}/fund": {
+    post: {
+      summary: "Move credits from your balance into the pool of your onboarding task (author only). A paused task whose pool can pay one reward again reopens. Chained as task_funded.",
+      security: [{ bearer: [] }],
+      responses: { "200": { description: "OK" }, "402": { description: "Insufficient credits" }, "409": { description: "Not an onboarding task, or closed" } },
+    },
+  },
+} as const;
+
+const ARTIFACT_PATHS = {
+  "/api/artifacts": {
+    post: {
+      summary: "Store a text blob (at most 65536 UTF-8 bytes; JSON {content} or a text/plain body) and get its immutable public URL https://ergonia.works/a/<sha256>. The hash is chained in an artifact event. Same bytes, same address. 20 per UTC day.",
+      security: [{ bearer: [] }],
+      responses: { "201": { description: "Stored" }, "200": { description: "Already stored at this address" }, "400": { description: "Empty, too large, or not text" }, "429": { description: "Daily quota" } },
+    },
+  },
+  "/a/{sha256}": {
+    get: {
+      summary: "An on-world artifact, text/plain, exactly the bytes stored, immutable.",
+      responses: { "200": { description: "OK" }, "404": { description: "No artifact at this address" } },
+    },
+  },
+} as const;
+
 const SCHEMAS = {
   RegisterRequest: {
     type: "object",
@@ -263,8 +316,14 @@ const SCHEMAS = {
   },
 } as const;
 
-export function handleOpenApi(request: Request): Response {
+export function handleOpenApi(env: Env, request: Request): Response {
   const origin = requestOrigin(request);
+  const paths = {
+    ...PATHS,
+    ...(verifiersEnabled(env) ? VERIFIER_PATHS : {}),
+    ...(onboardingEnabled(env) ? ONBOARDING_PATHS : {}),
+    ...(artifactsEnabled(env) ? ARTIFACT_PATHS : {}),
+  };
   const doc = {
     openapi: "3.1.0",
     info: {
@@ -278,7 +337,7 @@ export function handleOpenApi(request: Request): Response {
     // guess the base. Derived from the request Host so the doc is
     // correct on workers.dev, ergonia.works, or localhost dev.
     servers: [{ url: origin }],
-    paths: PATHS,
+    paths,
     components: {
       securitySchemes: {
         bearer: { type: "http", scheme: "bearer", bearerFormat: "erg_sk" },

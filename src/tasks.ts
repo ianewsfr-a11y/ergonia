@@ -1,15 +1,32 @@
-// Tasks: create / list / detail / close, with credit escrow and dedupe.
+// Tasks: create / list / detail / close / fund, with credit escrow and dedupe.
 //
 // Escrow rule (SPEC §4):
 //   - Creating a task deducts reward_credits from the author immediately.
 //   - Closing an OPEN task with no accepted verdict refunds the escrow.
-//   - An accepted verdict transfers the escrow to the submitter (see submissions.ts).
+//   - An accepted verdict transfers the escrow to the submitter (see verdicts.ts).
+//
+// Onboarding tasks (flag ONBOARDING_TASKS, 2026-09-10):
+//   - kind=onboarding, pool_size=N: the author escrows N x reward_credits
+//     into a pool; each accepted verdict pays one reward from the pool and
+//     the task stays open; accepted once per member (submissions.ts).
+//   - When the pool cannot pay one more reward the task is `paused`, visible
+//     as such, until POST /api/tasks/:id/fund refills it.
+//   - Closing an open or paused onboarding task refunds the whole pool.
+//   The escrow of the platform is the sum of open bounty rewards and of
+//   the pools of open or paused onboarding tasks (stats.ts).
+//
+// Verifier binding (flag VERIFIERS): a task may name the executable
+// verifier that judges it (chain-replay@1, leaderboard-replay@1). Fixed
+// at creation, house-authored only for now, cited in the condition.
 
+import { BRAND } from "./brand.js";
 import { appendEvent } from "./chain.js";
 import { commentsForTask } from "./comments.js";
+import { isVerifierName, onboardingEnabled, verifierId, verifierNameOf, verifiersEnabled } from "./features.js";
 import { findGuildBySlug } from "./guilds.js";
 import { consumeQuota, hasQuota } from "./quotas.js";
-import type { AuthContext, Env, GuildRow, SubmissionRow, TaskRow, TaskStatus } from "./types.js";
+import type { AuthContext, Env, GuildRow, SubmissionRow, TaskKind, TaskRow, TaskStatus } from "./types.js";
+import { ONBOARDING_POOL_MAX } from "./types.js";
 import {
   error,
   isIntInRange,
@@ -28,6 +45,9 @@ interface CreateTaskBody {
   condition?: unknown;
   reward_credits?: unknown;
   expiry?: unknown;
+  kind?: unknown;
+  pool_size?: unknown;
+  verifier?: unknown;
 }
 
 // The condition field must describe a check any third party can execute.
@@ -47,6 +67,12 @@ function looksVerifiable(condition: string): boolean {
   const hasArtifact = ARTIFACT_HINTS.some((h) => lc.includes(h));
   const hasVerb = CONTROL_VERBS.some((v) => lc.includes(v));
   return hasArtifact && hasVerb;
+}
+
+const TASK_STATUSES: readonly string[] = ["open", "closed", "expired", "paused"];
+
+function isHouse(handle: string): boolean {
+  return (BRAND.house_agents as readonly string[]).includes(handle);
 }
 
 export async function handleCreateTask(env: Env, ctx: AuthContext, request: Request): Promise<Response> {
@@ -74,11 +100,38 @@ export async function handleCreateTask(env: Env, ctx: AuthContext, request: Requ
     );
   }
 
+  // Kind and pool (onboarding). Off flag: the fields are refused, not
+  // ignored, so a caller never believes it opened a pool it did not.
+  let kind: TaskKind = "bounty";
+  let poolSize = 1;
+  if (body.kind !== undefined || body.pool_size !== undefined) {
+    if (!onboardingEnabled(env)) return error(400, "onboarding tasks are not enabled on this deployment");
+    if (body.kind !== "bounty" && body.kind !== "onboarding") return error(400, "kind must be 'bounty' or 'onboarding'");
+    kind = body.kind;
+    if (kind === "onboarding") {
+      if (!isIntInRange(body.pool_size, 1, ONBOARDING_POOL_MAX)) return error(400, `pool_size is required for an onboarding task (integer 1..${ONBOARDING_POOL_MAX} acceptances)`);
+      poolSize = body.pool_size;
+    } else if (body.pool_size !== undefined) {
+      return error(400, "pool_size applies to onboarding tasks only");
+    }
+  }
+
+  // Verifier binding. Off flag: refused. On: known name, house author.
+  let verifier: string | null = null;
+  if (body.verifier !== undefined && body.verifier !== null) {
+    if (!verifiersEnabled(env)) return error(400, "executable verifiers are not enabled on this deployment");
+    const name = isVerifierName(body.verifier) ? body.verifier : verifierNameOf(typeof body.verifier === "string" ? body.verifier : null);
+    if (!name) return error(400, "verifier must be one of: chain-replay, leaderboard-replay");
+    if (!isHouse(ctx.member.handle)) return error(403, "verifier-bound tasks are house-authored only for now (third_party_enabled: false on the manifest)");
+    verifier = verifierId(name);
+  }
+
   const guild = await findGuildBySlug(env, guildSlug);
   if (!guild) return error(404, "unknown guild");
 
-  if (ctx.member.credits < (reward as number)) {
-    return error(402, "insufficient credits to escrow reward");
+  const escrow = kind === "onboarding" ? (reward as number) * poolSize : (reward as number);
+  if (ctx.member.credits < escrow) {
+    return error(402, kind === "onboarding" ? `insufficient credits to escrow the pool (${escrow} = ${reward} x ${poolSize})` : "insufficient credits to escrow reward");
   }
   if (!(await hasQuota(env, ctx.member, "tasks"))) {
     return error(429, "daily task quota exhausted (resets 00:00 UTC)");
@@ -103,8 +156,8 @@ export async function handleCreateTask(env: Env, ctx: AuthContext, request: Requ
   const insert = env.DB
     .prepare(
       `INSERT INTO tasks
-         (guild_id, author_id, title, brief, condition, reward_credits, status, expiry, created_at, dedupe_key)
-         SELECT ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?
+         (guild_id, author_id, title, brief, condition, reward_credits, status, expiry, created_at, dedupe_key, kind, pool_credits, verifier)
+         SELECT ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?
          WHERE (SELECT credits FROM members WHERE id = ?) >= ?`,
     )
     .bind(
@@ -117,18 +170,21 @@ export async function handleCreateTask(env: Env, ctx: AuthContext, request: Requ
       expiry,
       createdAt,
       dedupeKey,
+      kind,
+      kind === "onboarding" ? escrow : 0,
+      verifier,
       ctx.member.id,
-      reward,
+      escrow,
     );
-  const escrow = env.DB
+  const debit = env.DB
     .prepare("UPDATE members SET credits = credits - ? WHERE id = ? AND credits >= ?")
-    .bind(reward, ctx.member.id, reward);
+    .bind(escrow, ctx.member.id, escrow);
 
-  const batchResults = await env.DB.batch([insert, escrow]);
+  const batchResults = await env.DB.batch([insert, debit]);
   const insertRes = batchResults[0];
-  const escrowRes = batchResults[1];
-  if (!insertRes || !escrowRes || !insertRes.meta.changes || !escrowRes.meta.changes) {
-    if (insertRes?.meta.changes && !escrowRes?.meta.changes) {
+  const debitRes = batchResults[1];
+  if (!insertRes || !debitRes || !insertRes.meta.changes || !debitRes.meta.changes) {
+    if (insertRes?.meta.changes && !debitRes?.meta.changes) {
       // Cannot happen inside one transaction (same balance read twice),
       // kept as a belt: never leave a task without its escrow.
       await env.DB.prepare("DELETE FROM tasks WHERE id = ?").bind(Number(insertRes.meta.last_row_id)).run();
@@ -146,10 +202,13 @@ export async function handleCreateTask(env: Env, ctx: AuthContext, request: Requ
     title,
     reward_credits: reward,
     expiry,
+    // Bounty payloads are byte for byte what they were before 2026-09-10.
+    ...(kind === "onboarding" ? { kind, pool_credits: escrow, pool_size: poolSize } : {}),
+    ...(verifier ? { verifier } : {}),
   });
 
   const row = await taskById(env, id);
-  return json({ task: row }, { status: 201 });
+  return json({ task: row ? presentTask(row) : null }, { status: 201 });
 }
 
 export async function handleListTasks(env: Env, url: URL): Promise<Response> {
@@ -167,7 +226,7 @@ export async function handleListTasks(env: Env, url: URL): Promise<Response> {
     args.push(g.id);
   }
   if (status) {
-    if (!["open", "closed", "expired"].includes(status)) return error(400, "invalid status");
+    if (!TASK_STATUSES.includes(status)) return error(400, "invalid status");
     clauses.push("t.status = ?");
     args.push(status);
   }
@@ -179,7 +238,8 @@ export async function handleListTasks(env: Env, url: URL): Promise<Response> {
   const rs = await env.DB
     .prepare(
       `SELECT t.id, t.guild_id, g.slug AS guild, t.author_id, m.handle AS author,
-              t.title, t.brief, t.condition, t.reward_credits, t.status, t.expiry, t.created_at
+              t.title, t.brief, t.condition, t.reward_credits, t.status, t.expiry, t.created_at,
+              t.kind, t.pool_credits, t.verifier
          FROM tasks t
          JOIN guilds g  ON g.id  = t.guild_id
          JOIN members m ON m.id  = t.author_id
@@ -187,8 +247,8 @@ export async function handleListTasks(env: Env, url: URL): Promise<Response> {
          ORDER BY t.id DESC LIMIT ?`,
     )
     .bind(...args, limit)
-    .all();
-  return json({ tasks: rs.results ?? [], limit });
+    .all<TaskDetail>();
+  return json({ tasks: (rs.results ?? []).map(presentTask), limit });
 }
 
 export async function handleGetTask(env: Env, id: number): Promise<Response> {
@@ -204,14 +264,14 @@ export async function handleGetTask(env: Env, id: number): Promise<Response> {
     .bind(id)
     .all();
   const comments = await commentsForTask(env, id, 50);
-  return json({ task, submissions: subs.results ?? [], comments });
+  return json({ task: presentTask(task), submissions: subs.results ?? [], comments });
 }
 
 export async function handleCloseTask(env: Env, ctx: AuthContext, id: number): Promise<Response> {
   const task = await taskById(env, id);
   if (!task) return error(404, "task not found");
   if (task.author_id !== ctx.member.id) return error(403, "only the author can close this task");
-  if (task.status !== "open") return error(409, `task is already ${task.status}`);
+  if (task.status !== "open" && task.status !== "paused") return error(409, `task is already ${task.status}`);
 
   // CLAIM THE CLOSE FIRST, ATOMICALLY.
   //
@@ -219,29 +279,43 @@ export async function handleCloseTask(env: Env, ctx: AuthContext, id: number): P
   // both used to pass it and both refunded the escrow, minting credits.
   // The open -> closed transition is now a single conditional UPDATE.
   // Exactly one caller sees `changes === 1` and may refund. This also
-  // mutually excludes with the verdict path, which closes the task on
-  // acceptance: whichever lands first makes the other a no-op 409.
+  // mutually excludes with the verdict path, which closes a bounty on
+  // acceptance and pays an onboarding pool only while the task is open:
+  // whichever lands first makes the other a no-op 409.
   const claim = await env.DB
-    .prepare("UPDATE tasks SET status = 'closed' WHERE id = ? AND status = 'open'")
+    .prepare("UPDATE tasks SET status = 'closed' WHERE id = ? AND status IN ('open', 'paused')")
     .bind(id)
     .run();
   if (!claim.meta.changes) {
     return error(409, "task is no longer open");
   }
 
-  // Read the acceptance state only after we own the close, so we cannot
-  // refund an escrow that a verdict already paid out.
-  const accepted = await env.DB
-    .prepare("SELECT 1 AS x FROM submissions WHERE task_id = ? AND status = 'accepted' LIMIT 1")
-    .bind(id)
-    .first<{ x: number }>();
-
-  const refunded = !accepted ? task.reward_credits : 0;
-  if (refunded > 0) {
-    await env.DB
-      .prepare("UPDATE members SET credits = credits + ? WHERE id = ?")
-      .bind(refunded, ctx.member.id)
-      .run();
+  let refunded = 0;
+  if (task.kind === "onboarding") {
+    // The pool is whatever was not paid out. Nobody else can touch it
+    // now: verdicts need status open, funding needs open or paused.
+    const row = await env.DB.prepare("SELECT pool_credits FROM tasks WHERE id = ?").bind(id).first<{ pool_credits: number }>();
+    refunded = row?.pool_credits ?? 0;
+    if (refunded > 0) {
+      await env.DB.batch([
+        env.DB.prepare("UPDATE tasks SET pool_credits = 0 WHERE id = ?").bind(id),
+        env.DB.prepare("UPDATE members SET credits = credits + ? WHERE id = ?").bind(refunded, ctx.member.id),
+      ]);
+    }
+  } else {
+    // Read the acceptance state only after we own the close, so we cannot
+    // refund an escrow that a verdict already paid out.
+    const accepted = await env.DB
+      .prepare("SELECT 1 AS x FROM submissions WHERE task_id = ? AND status = 'accepted' LIMIT 1")
+      .bind(id)
+      .first<{ x: number }>();
+    refunded = !accepted ? task.reward_credits : 0;
+    if (refunded > 0) {
+      await env.DB
+        .prepare("UPDATE members SET credits = credits + ? WHERE id = ?")
+        .bind(refunded, ctx.member.id)
+        .run();
+    }
   }
 
   await appendEvent(env, "task_closed", {
@@ -250,7 +324,69 @@ export async function handleCloseTask(env: Env, ctx: AuthContext, id: number): P
     refunded_credits: refunded,
   });
   const updated = await taskById(env, id);
-  return json({ task: updated, refunded_credits: refunded });
+  return json({ task: updated ? presentTask(updated) : null, refunded_credits: refunded });
+}
+
+interface FundBody {
+  credits?: unknown;
+}
+
+// POST /api/tasks/:id/fund (flag ONBOARDING_TASKS): the author moves
+// credits from its balance into the pool of its onboarding task. A
+// paused task whose pool can pay one reward again reopens. Chained as
+// task_funded; no credit is minted.
+export async function handleFundTask(env: Env, ctx: AuthContext, id: number, request: Request): Promise<Response> {
+  const body = await readJson<FundBody>(request);
+  if (!body) return error(400, "expected application/json body");
+  const amount = body.credits;
+  if (!isIntInRange(amount, 1, 1_000_000)) return error(400, "credits must be an integer 1..1000000");
+  const task = await taskById(env, id);
+  if (!task) return error(404, "task not found");
+  if (task.author_id !== ctx.member.id) return error(403, "only the author can fund this task");
+  if (task.kind !== "onboarding") return error(409, "only onboarding tasks have a pool");
+  if (task.status !== "open" && task.status !== "paused") return error(409, `task is ${task.status}`);
+  if (ctx.member.credits < amount) return error(402, "insufficient credits to fund the pool");
+
+  // Both statements check the SAME predicate (task still open or paused,
+  // balance sufficient) inside one transaction, so either both change a
+  // row or neither does. A close that lands between the read above and
+  // this batch makes both match zero rows; the earlier shape debited the
+  // author while the pool statement matched nothing (review, 2026-09-10).
+  const results = await env.DB.batch([
+    env.DB
+      .prepare(
+        `UPDATE tasks SET pool_credits = pool_credits + ?
+           WHERE id = ? AND kind = 'onboarding' AND status IN ('open', 'paused')
+             AND (SELECT credits FROM members WHERE id = ?) >= ?`,
+      )
+      .bind(amount, id, ctx.member.id, amount),
+    env.DB
+      .prepare(
+        `UPDATE members SET credits = credits - ?
+           WHERE id = ? AND credits >= ?
+             AND EXISTS (SELECT 1 FROM tasks t WHERE t.id = ? AND t.kind = 'onboarding' AND t.status IN ('open', 'paused'))`,
+      )
+      .bind(amount, ctx.member.id, amount, id),
+  ]);
+  if (!results[0]?.meta.changes || !results[1]?.meta.changes) {
+    return error(409, "the pool could not be funded (task no longer open or paused, or insufficient credits)");
+  }
+  const row = await env.DB.prepare("SELECT pool_credits, status FROM tasks WHERE id = ?").bind(id).first<{ pool_credits: number; status: TaskStatus }>();
+  const poolAfter = row?.pool_credits ?? 0;
+  let statusAfter: TaskStatus = row?.status ?? "paused";
+  if (statusAfter === "paused" && poolAfter >= task.reward_credits) {
+    const reopened = await env.DB.prepare("UPDATE tasks SET status = 'open' WHERE id = ? AND status = 'paused'").bind(id).run();
+    if (reopened.meta.changes) statusAfter = "open";
+  }
+  await appendEvent(env, "task_funded", {
+    task_id: id,
+    author_id: ctx.member.id,
+    amount,
+    pool_after: poolAfter,
+    status_after: statusAfter,
+  });
+  const updated = await taskById(env, id);
+  return json({ task: updated ? presentTask(updated) : null, funded_credits: amount });
 }
 
 export interface TaskDetail {
@@ -266,6 +402,37 @@ export interface TaskDetail {
   status: TaskStatus;
   expiry: number | null;
   created_at: number;
+  kind: TaskKind;
+  pool_credits: number;
+  verifier: string | null;
+}
+
+// The public shape. Bounty tasks show the fields they always had plus
+// kind; onboarding tasks add the pool and how many acceptances it can
+// still pay, so "paused" is never a surprise.
+export function presentTask(t: TaskDetail): Record<string, unknown> {
+  const base: Record<string, unknown> = {
+    id: t.id,
+    guild_id: t.guild_id,
+    guild: t.guild,
+    author_id: t.author_id,
+    author: t.author,
+    title: t.title,
+    brief: t.brief,
+    condition: t.condition,
+    reward_credits: t.reward_credits,
+    status: t.status,
+    expiry: t.expiry,
+    created_at: t.created_at,
+    kind: t.kind,
+  };
+  if (t.verifier) base.verifier = t.verifier;
+  if (t.kind === "onboarding") {
+    base.pool_credits = t.pool_credits;
+    base.acceptances_left = Math.floor(t.pool_credits / Math.max(1, t.reward_credits));
+    if (t.status === "paused") base.paused_reason = "unfunded";
+  }
+  return base;
 }
 
 export async function taskById(env: Env, id: number): Promise<TaskDetail | null> {
@@ -273,7 +440,8 @@ export async function taskById(env: Env, id: number): Promise<TaskDetail | null>
     (await env.DB
       .prepare(
         `SELECT t.id, t.guild_id, g.slug AS guild, t.author_id, m.handle AS author,
-                t.title, t.brief, t.condition, t.reward_credits, t.status, t.expiry, t.created_at
+                t.title, t.brief, t.condition, t.reward_credits, t.status, t.expiry, t.created_at,
+                t.kind, t.pool_credits, t.verifier
            FROM tasks t
            JOIN guilds g  ON g.id  = t.guild_id
            JOIN members m ON m.id  = t.author_id
@@ -285,3 +453,4 @@ export async function taskById(env: Env, id: number): Promise<TaskDetail | null>
 }
 
 export { looksVerifiable as _looksVerifiableForTests };
+export type { GuildRow, SubmissionRow, TaskRow };

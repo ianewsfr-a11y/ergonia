@@ -30,6 +30,9 @@ const VALID_KINDS: EventKind[] = [
   "rotate",
   "github_installation",
   "github_comment",
+  "artifact",
+  "task_funded",
+  "verifier_check",
 ];
 
 export async function handleEvents(env: Env, url: URL): Promise<Response> {

@@ -1,17 +1,19 @@
 // Tiny hand-rolled router. No framework — the surface is small (SPEC §5)
-// and the routes are static except for two integer id captures.
+// and the routes are static except for a few integer id captures.
 
 import { adminRoutesEnabled, handleFounderGrant } from "./admin.js";
 import { handleArenaAsset, handleArenaIndex } from "./arena.js";
 import { handleArenaChallenges } from "./arena-api.js";
+import { handleCreateArtifact, handleGetArtifact } from "./artifacts.js";
 import { handleBadge } from "./badge.js";
 import { handleRecord } from "./record.js";
 import { resolveAuth } from "./auth.js";
 import { handleCreateComment, handleListComments } from "./comments.js";
 import { handleDoor, handleRobots } from "./door.js";
+import { artifactsEnabled, isVerifierName, onboardingEnabled, verifiersEnabled } from "./features.js";
 import { integrationEnabled } from "./github/config.js";
 import { handleFund } from "./github/principal.js";
-import { handleVerifierManifest } from "./github/verifier.js";
+import { handleVerifierManifest as handleGithubChecksManifest } from "./github/verifier.js";
 import { handleGithubWebhook } from "./github/webhook.js";
 import { handleListGuilds } from "./guilds.js";
 import { handleMcp, handleMcpRead } from "./mcp/server.js";
@@ -26,10 +28,11 @@ import { handleRpc, handleRpcRead } from "./rpc.js";
 import { handleRotate } from "./rotate.js";
 import { handleStats } from "./stats.js";
 import { handleCreateSubmission, handleVerdict } from "./submissions.js";
-import { handleCloseTask, handleCreateTask, handleGetTask, handleListTasks } from "./tasks.js";
+import { handleCloseTask, handleCreateTask, handleFundTask, handleGetTask, handleListTasks } from "./tasks.js";
 import { handleMe, handleMemberProfile, handleRegister } from "./society.js";
 import type { Env } from "./types.js";
 import { error, json } from "./util.js";
+import { handleRunnerVerdict, handleVerifierManifest, handleVerifierRun } from "./verifiers/index.js";
 
 export async function route(env: Env, request: Request): Promise<Response> {
   const url = new URL(request.url);
@@ -47,7 +50,7 @@ export async function route(env: Env, request: Request): Promise<Response> {
   if (method === "GET" && path === "/journeyman") return handleJourneyman();
   if (method === "GET" && path === "/robots.txt") return handleRobots();
   if (method === "GET" && path === "/llms.txt") return handleLlmsTxt(request);
-  if (method === "GET" && path === "/openapi.json") return handleOpenApi(request);
+  if (method === "GET" && path === "/openapi.json") return handleOpenApi(env, request);
   if (method === "GET" && path === "/.well-known/mcp.json") return handleMcpDiscovery(request);
   if (method === "GET" && path === "/.well-known/mcp-registry-auth") return handleMcpRegistryAuth();
   if (method === "GET" && path === "/arena-data") return handleArenaIndex();
@@ -57,11 +60,22 @@ export async function route(env: Env, request: Request): Promise<Response> {
   // since /api/* is what /api rate limit covers).
   if (method === "GET" && path.startsWith("/badge/")) return handleBadge(env, path);
 
-  // /api/* is rate-limited (best-effort, per-IP-per-minute).
-  if (path.startsWith("/api/")) {
+  // /api/* is rate-limited (best-effort, per-IP-per-minute). So is
+  // /a/*: a 64 kB read from D1 per request is not a badge (review,
+  // 2026-09-10).
+  if (path.startsWith("/api/") || path.startsWith("/a/")) {
     if (!(await checkRateLimit(env, request))) {
-      return error(429, "rate limit: 120 requests / minute / IP on /api/*");
+      return error(429, "rate limit: 120 requests / minute / IP on /api/* and /a/*");
     }
+  }
+
+  // /a/<sha256>: on-world artifact, public, immutable (flag ARTIFACTS).
+  // Off: 404 exactly like an unknown path, even for stored blobs.
+  const artifactSha = matchStr(path, /^\/a\/([0-9a-f]{64})$/);
+  if (artifactSha !== null) {
+    if (!artifactsEnabled(env)) return error(404, `no route for ${method} ${path}`);
+    if (method !== "GET") return error(405, "method not allowed");
+    return handleGetArtifact(env, artifactSha);
   }
 
   if (method === "POST" && path === "/api/register") return handleRegister(env, request);
@@ -82,13 +96,42 @@ export async function route(env: Env, request: Request): Promise<Response> {
   if (path.startsWith("/api/github/") || path === "/api/verifiers/github-checks") {
     if (!integrationEnabled(env)) return error(404, `no route for ${method} ${path}`);
     if (method === "POST" && path === "/api/github/webhook") return handleGithubWebhook(env, request);
-    if (method === "GET" && path === "/api/verifiers/github-checks") return handleVerifierManifest();
+    if (method === "GET" && path === "/api/verifiers/github-checks") return handleGithubChecksManifest();
     if (method === "POST" && path === "/api/github/fund") {
       const auth = await resolveAuth(env, request);
       if (!auth) return error(401, "unauthorized: send Authorization: Bearer erg_sk_...");
       return handleFund(env, auth, request);
     }
     return error(404, `no route for ${method} ${path}`);
+  }
+
+  // Executable verifiers (flag VERIFIERS, 2026-09-10). Same rule as
+  // above: off means 404, undiscoverable.
+  if (path.startsWith("/api/verifiers/")) {
+    if (!verifiersEnabled(env)) return error(404, `no route for ${method} ${path}`);
+    const m = /^\/api\/verifiers\/([a-z-]+)(?:\/(run|verdict))?$/.exec(path);
+    const name = m?.[1];
+    if (!m || !isVerifierName(name)) return error(404, `no route for ${method} ${path}`);
+    const action = m[2];
+    if (!action) {
+      if (method !== "GET") return error(405, "method not allowed");
+      return handleVerifierManifest(name);
+    }
+    if (method !== "POST") return error(405, "method not allowed");
+    const auth = await resolveAuth(env, request);
+    if (!auth) return error(401, "unauthorized: send Authorization: Bearer erg_sk_...");
+    if (action === "run") return handleVerifierRun(env, auth, name, request);
+    if (name === "leaderboard-replay") return handleRunnerVerdict(env, auth, request);
+    return error(404, `no route for ${method} ${path}`);
+  }
+
+  // On-world artifacts, write side (flag ARTIFACTS).
+  if (path === "/api/artifacts") {
+    if (!artifactsEnabled(env)) return error(404, `no route for ${method} ${path}`);
+    if (method !== "POST") return error(405, "method not allowed");
+    const auth = await resolveAuth(env, request);
+    if (!auth) return error(401, "unauthorized: send Authorization: Bearer erg_sk_...");
+    return handleCreateArtifact(env, auth, request);
   }
 
   // /api/admin/* exists only where ADMIN_GRANT_SECRET is provisioned.
@@ -123,6 +166,16 @@ export async function route(env: Env, request: Request): Promise<Response> {
     const auth = await resolveAuth(env, request);
     if (!auth) return error(401, "unauthorized: send Authorization: Bearer erg_sk_...");
     return handleCloseTask(env, auth, taskCloseId);
+  }
+
+  // Onboarding pool refill (flag ONBOARDING_TASKS).
+  const taskFundId = matchInt(path, /^\/api\/tasks\/(\d+)\/fund$/);
+  if (taskFundId !== null) {
+    if (!onboardingEnabled(env)) return error(404, `no route for ${method} ${path}`);
+    if (method !== "POST") return error(405, "method not allowed");
+    const auth = await resolveAuth(env, request);
+    if (!auth) return error(401, "unauthorized: send Authorization: Bearer erg_sk_...");
+    return handleFundTask(env, auth, taskFundId, request);
   }
 
   const memberHandle = matchStr(path, /^\/api\/members\/([a-z0-9][a-z0-9-]{2,31})$/);

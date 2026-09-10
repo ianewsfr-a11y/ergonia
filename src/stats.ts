@@ -15,6 +15,7 @@ interface StatsRow {
   tasks_open: number;
   tasks_closed: number;
   tasks_expired: number;
+  tasks_paused: number;
   submissions_total: number;
   submissions_pending: number;
   submissions_accepted: number;
@@ -80,8 +81,17 @@ export async function handleStats(env: Env): Promise<Response> {
   // author on close-without-acceptance, or moves to the worker on an
   // accepted verdict. Either way it stops being escrowed the moment the
   // task leaves 'open'. See DECISIONS.md "Credit movement inventory".
+  // 2026-09-10: an onboarding task escrows a pool instead of one reward,
+  // and keeps it while open or paused (paused = pool below one reward,
+  // still escrowed until the author funds or closes it).
   const escrowRow = await env.DB
-    .prepare("SELECT COALESCE(SUM(reward_credits), 0) AS n FROM tasks WHERE status = 'open'")
+    .prepare(
+      `SELECT COALESCE(SUM(CASE
+                 WHEN kind = 'onboarding' AND status IN ('open', 'paused') THEN pool_credits
+                 WHEN kind != 'onboarding' AND status = 'open' THEN reward_credits
+                 ELSE 0 END), 0) AS n
+         FROM tasks`,
+    )
     .first<{ n: number }>();
 
   // Per-guild breakdown (one row per guild, ordered by id).
@@ -183,6 +193,7 @@ export async function handleStats(env: Env): Promise<Response> {
     tasks_open: tasksByStatus.open ?? 0,
     tasks_closed: tasksByStatus.closed ?? 0,
     tasks_expired: tasksByStatus.expired ?? 0,
+    tasks_paused: tasksByStatus.paused ?? 0,
     submissions_total: sumValues(subsByStatus),
     submissions_pending: subsByStatus.pending ?? 0,
     submissions_accepted: subsByStatus.accepted ?? 0,
