@@ -18,6 +18,7 @@
 // from the intake evidence and the run report, so the reason format is
 // the verifier's, and the actor in the event is this verifier.
 
+import { appendEvent } from "../chain.js";
 import { ALLOWED_OWNER, GITHUB_API_VERSION, USER_AGENT, githubApiBase } from "../github/config.js";
 import { installationToken } from "../github/app-auth.js";
 import { sha256Hex } from "../hash.js";
@@ -67,7 +68,8 @@ export const LEADERBOARD_REPLAY_MANIFEST = {
     intake_reject_if: "HEAD is outside the 3-event window before the submission event, or the artifact is unreadable or malformed, or the declared output differs from the leaderboard recomputed at HEAD",
     intake_otherwise: "provisionally_consistent (chained verifier_check), then the run is dispatched",
     accept_if: "the run exits 0 within the timeout and its stdout equals the declared output byte for byte (after the normalisation above)",
-    reject_if: "the run fails, times out, or its stdout differs from the declared output",
+    reject_if: "the program ran and failed: non-zero exit, timeout, or stdout different from the declared output",
+    runner_error: "the job could not run the program (sandbox, sudo, network, setup, program re-read): no verdict; a runner_error event is chained with the cause, the run id and the nonce, the submission stays pending, and the job is dispatched again, at most 3 times, after which the steward flags it for the human",
   },
   trigger: { on: ["submission.recorded", "POST /api/verifiers/leaderboard-replay/run"], verdict_within: "minutes (one GitHub Actions job)" },
   proves:
@@ -440,4 +442,127 @@ export async function handleRunnerVerdict(env: Env, ctx: AuthContext, request: R
     .bind(sub.id)
     .first();
   return json({ submission: fresh, verdict, credits_transferred: applied.transferred, verdict_event_id: applied.event_id });
+}
+
+// ---------------------------------------------------------------------
+// The runner's infrastructure failure: POST /api/verifiers/leaderboard-replay/runner-error
+// ---------------------------------------------------------------------
+// The job could not run the program (sandbox, sudo, network, setup, or
+// the program re-read differing from the intake). That is the runner's
+// fault, never the submitter's, so it renders NO verdict: a runner_error
+// event is chained with the cause, the run id and the nonce, the
+// submission stays pending, and the job is dispatched again, at most
+// MAX_REDISPATCH times after the first dispatch. When those are used
+// up, a redispatch_exhausted check is chained and the steward flags it
+// for the human (founder, 2026-09-10, after run 34474578377).
+export const MAX_REDISPATCH = 3;
+
+interface RunnerErrorReport {
+  run_id: string;
+  run_url: string;
+  nonce: string;
+  program_sha256: string;
+  stage: string;
+  cause: string;
+}
+
+function parseRunnerError(v: unknown): RunnerErrorReport | string {
+  if (!v || typeof v !== "object") return "run must be an object";
+  const o = v as Record<string, unknown>;
+  const s = (k: string, max: number): string | null => (typeof o[k] === "string" && (o[k] as string).length > 0 && (o[k] as string).length <= max ? (o[k] as string) : null);
+  const run_id = s("run_id", 40);
+  const run_url = s("run_url", 300);
+  const nonce = s("nonce", 32);
+  const program_sha256 = s("program_sha256", 64);
+  const stage = s("stage", 40);
+  const cause = s("cause", 500);
+  if (!run_id || !run_url || !nonce || !program_sha256 || !stage || !cause) return "run must carry run_id, run_url, nonce, program_sha256, stage and cause as strings";
+  if (!/^\d{1,20}$/.test(run_id)) return "run_id must be the numeric id of the GitHub Actions run";
+  if (!/^[0-9a-f]{32}$/.test(nonce)) return "nonce must be the 32 hex chars of the dispatch";
+  if (!/^https:\/\/github\.com\//.test(run_url)) return "run_url must be a github.com URL";
+  if (!/^[0-9a-f]{64}$/.test(program_sha256)) return "program_sha256 must be hex SHA-256";
+  return { run_id, run_url, nonce, program_sha256, stage, cause };
+}
+
+async function dispatchCount(env: Env, submissionId: number): Promise<number> {
+  const row = await env.DB
+    .prepare("SELECT COUNT(*) AS n FROM verifier_checks WHERE submission_id = ? AND verifier = ? AND stage = 'dispatch' AND result = 'dispatched'")
+    .bind(submissionId, ID)
+    .first<{ n: number }>();
+  return row?.n ?? 0;
+}
+
+export async function handleRunnerError(env: Env, ctx: AuthContext, request: Request): Promise<Response> {
+  const body = await readJson<RunnerBody>(request);
+  if (!body) return error(400, "expected application/json body");
+  const submissionId = Number(body.submission_id);
+  if (!Number.isInteger(submissionId) || submissionId <= 0) return error(400, "submission_id must be a positive integer");
+  const report = parseRunnerError(body.run);
+  if (typeof report === "string") return error(400, report);
+
+  const sub = await loadSubmission(env, submissionId);
+  if (!sub) return error(404, "submission not found");
+  if (sub.status !== "pending") return error(409, `submission is already ${sub.status}`);
+  const task = await loadTask(env, sub.task_id);
+  if (!task) return error(404, "parent task not found");
+  if (task.author_id !== ctx.member.id) return error(403, "only the task author's key may report a run");
+  if (task.verifier !== ID) return error(409, `task is not bound to ${ID}`);
+  const intake = await latestCheck(env, sub.id, ID, "intake");
+  if (!intake || intake.result !== "provisionally_consistent") return error(409, "no provisionally consistent intake check exists for this submission");
+  const intakeEvidence = parseEvidence(intake);
+  if (intakeEvidence.program_sha256 !== report.program_sha256) return error(400, "program_sha256 does not match the program checked at intake");
+  const dispatch = await latestCheck(env, sub.id, ID, "dispatch");
+  const dispatchEvidence = parseEvidence(dispatch);
+  if (!dispatch || dispatch.result !== "dispatched" || dispatchEvidence.dispatch_nonce !== report.nonce) {
+    return error(409, "nonce does not match the latest chained dispatch of this submission");
+  }
+  const looked = await lookupRun(env, report.run_id);
+  if (!looked.ok) return error(looked.retryable ? 502 : 409, `run not confirmed with GitHub: ${looked.reason}`);
+
+  const dispatches = await dispatchCount(env, sub.id);
+  await appendEvent(env, "runner_error", {
+    submission_id: sub.id,
+    task_id: task.id,
+    verifier: ID,
+    stage: report.stage,
+    cause: report.cause,
+    run_id: report.run_id,
+    run_url: report.run_url,
+    nonce: report.nonce,
+    dispatches_so_far: dispatches,
+  });
+  await recordCheck(env, {
+    submission_id: sub.id,
+    task_id: task.id,
+    verifier: ID,
+    stage: "run",
+    result: "runner_error",
+    evidence: { stage: report.stage, cause: report.cause, run_id: report.run_id, nonce: report.nonce, dispatches_so_far: dispatches },
+  });
+
+  // Dispatch again, or hand over.
+  let redispatched = false;
+  if (dispatches <= MAX_REDISPATCH) {
+    const again = await dispatchRun(env, { submission_id: sub.id, task_id: task.id, head: Number(intakeEvidence.head_claimed), program_sha256: report.program_sha256 });
+    await recordCheck(env, {
+      submission_id: sub.id,
+      task_id: task.id,
+      verifier: ID,
+      stage: "dispatch",
+      result: again.ok ? "dispatched" : "dispatch_failed",
+      evidence: again.ok ? { repository: again.repository, workflow: again.workflow, dispatch_nonce: again.nonce, attempt: dispatches + 1 } : { reason: again.reason, attempt: dispatches + 1 },
+    });
+    redispatched = again.ok;
+  } else {
+    await recordCheck(env, {
+      submission_id: sub.id,
+      task_id: task.id,
+      verifier: ID,
+      stage: "dispatch",
+      result: "redispatch_exhausted",
+      evidence: { dispatches, max_redispatch: MAX_REDISPATCH, note: "no verdict; the steward flags this submission for the human" },
+    });
+  }
+  const fresh = await loadSubmission(env, submissionId);
+  return json({ submission: fresh, verdict: null, runner_error: { stage: report.stage, cause: report.cause }, dispatches_so_far: dispatches, redispatched });
 }

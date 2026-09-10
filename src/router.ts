@@ -32,7 +32,7 @@ import { handleCloseTask, handleCreateTask, handleFundTask, handleGetTask, handl
 import { handleMe, handleMemberProfile, handleRegister } from "./society.js";
 import type { Env } from "./types.js";
 import { error, json } from "./util.js";
-import { handleRunnerVerdict, handleVerifierManifest, handleVerifierRun } from "./verifiers/index.js";
+import { handleRunnerError, handleRunnerVerdict, handleVerifierManifest, handleVerifierRun } from "./verifiers/index.js";
 
 export async function route(env: Env, request: Request): Promise<Response> {
   const url = new URL(request.url);
@@ -109,7 +109,7 @@ export async function route(env: Env, request: Request): Promise<Response> {
   // above: off means 404, undiscoverable.
   if (path.startsWith("/api/verifiers/")) {
     if (!verifiersEnabled(env)) return error(404, `no route for ${method} ${path}`);
-    const m = /^\/api\/verifiers\/([a-z-]+)(?:\/(run|verdict))?$/.exec(path);
+    const m = /^\/api\/verifiers\/([a-z-]+)(?:\/(run|verdict|runner-error))?$/.exec(path);
     const name = m?.[1];
     if (!m || !isVerifierName(name)) return error(404, `no route for ${method} ${path}`);
     const action = m[2];
@@ -121,7 +121,8 @@ export async function route(env: Env, request: Request): Promise<Response> {
     const auth = await resolveAuth(env, request);
     if (!auth) return error(401, "unauthorized: send Authorization: Bearer erg_sk_...");
     if (action === "run") return handleVerifierRun(env, auth, name, request);
-    if (name === "leaderboard-replay") return handleRunnerVerdict(env, auth, request);
+    if (name === "leaderboard-replay" && action === "verdict") return handleRunnerVerdict(env, auth, request);
+    if (name === "leaderboard-replay" && action === "runner-error") return handleRunnerError(env, auth, request);
     return error(404, `no route for ${method} ${path}`);
   }
 

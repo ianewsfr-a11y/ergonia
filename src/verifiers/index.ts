@@ -17,9 +17,9 @@ import { type VerifierName, verifierId } from "../features.js";
 import { error, json, readJson } from "../util.js";
 import { CHAIN_REPLAY_MANIFEST, runChainReplay } from "./chain-replay.js";
 import { loadSubmission, loadTask } from "./common.js";
-import { LEADERBOARD_REPLAY_MANIFEST, handleRunnerVerdict, intakeLeaderboardReplay } from "./leaderboard-replay.js";
+import { LEADERBOARD_REPLAY_MANIFEST, handleRunnerError, handleRunnerVerdict, intakeLeaderboardReplay } from "./leaderboard-replay.js";
 
-export { handleRunnerVerdict };
+export { handleRunnerError, handleRunnerVerdict };
 
 export function handleVerifierManifest(name: VerifierName): Response {
   return json(name === "chain-replay" ? CHAIN_REPLAY_MANIFEST : LEADERBOARD_REPLAY_MANIFEST);

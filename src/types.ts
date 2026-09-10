@@ -113,7 +113,11 @@ export type EventKind =
   // observed at one stage of a submission.
   | "artifact"
   | "task_funded"
-  | "verifier_check";
+  | "verifier_check"
+  // An execution job that could not run the program (sandbox, sudo,
+  // network, setup): no verdict, the submission stays pending, the job
+  // is dispatched again (at most MAX_REDISPATCH times).
+  | "runner_error";
 
 export interface CommentRow {
   id: number;

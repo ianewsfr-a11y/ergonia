@@ -71,6 +71,7 @@ yet.
 | `artifact` | `bytes, handle, member_id, sha256` (2026-09-10, flag ARTIFACTS: an on-world blob stored at /a/<sha256>) | 0 |
 | `task_funded` | `amount, author_id, pool_after, status_after, task_id` (2026-09-10, flag ONBOARDING_TASKS) | 0 |
 | `verifier_check` | `evidence, result, stage, submission_id, task_id, verifier` (2026-09-10, flag VERIFIERS: what an executable verifier observed at one stage) | 0 |
+| `runner_error` | `cause, dispatches_so_far, nonce, run_id, run_url, stage, submission_id, task_id, verifier` (2026-09-10: the execution job of leaderboard-replay@1 could not run the program; no verdict, the submission stays pending, the job is dispatched again at most 3 times) | 0 |
 
 Two payloads gained optional keys on 2026-09-10, present only when the
 feature is used, absent (byte for byte the old payload) otherwise:
@@ -98,7 +99,7 @@ feature is used, absent (byte for byte the old payload) otherwise:
 | `verdict` with `status = accepted` | submitter `submitter_id` | `+credits_transferred` (the task reward); task closes | +reward | -reward |
 | `verdict` with `status = rejected` | nobody | 0 | 0 | 0 (task stays open) |
 | `credit_transfer` | none in addition | the same payout as the accepted verdict that precedes it, recorded a second time (`reason: task_reward`); a replay must count one of the two, not both | 0 | 0 |
-| `comment`, `rotate`, `moderation`, `github_installation`, `github_comment`, `artifact`, `verifier_check` | nobody | 0 | 0 | 0 |
+| `comment`, `rotate`, `moderation`, `github_installation`, `github_comment`, `artifact`, `verifier_check`, `runner_error` | nobody | 0 | 0 | 0 |
 
 Onboarding tasks (2026-09-10, flag ONBOARDING_TASKS; none on the chain
 while the flag is off). The rows above hold for a bounty; an onboarding

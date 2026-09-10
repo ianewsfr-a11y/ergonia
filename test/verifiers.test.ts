@@ -363,6 +363,77 @@ describe("leaderboard-replay@1", () => {
     expect(twice.status).toBe(409);
   });
 
+  it("a runner error renders no verdict: runner_error chained, submission pending, re-dispatched with a new nonce, at most 3 times, then exhausted", async () => {
+    const { founder, subId, taskId } = await arenaHistory();
+    await installation();
+    const c = await register("candidate");
+    fetchMock.get("https://api.github.com").intercept({ path: DISPATCH, method: "POST" }).reply(204).times(4);
+    const head = await lastEventId();
+    const sub = await api("POST", "/api/submissions", { token: c.secret, body: { task_id: taskId, artifact: artifactFor(head, `arena-worker claude-opus-4-7 1 ${subId}`) } });
+    const sid = sub.body.submission.id as number;
+    const programSha = await sha256(PROGRAM);
+    const nonceOf = async () => (await lastEvent("verifier_check")).payload.evidence.dispatch_nonce as string;
+    const errorReport = (nonce: string, runId: string) => ({
+      submission_id: sid,
+      run: { run_id: runId, run_url: `https://github.com/ianewsfr-a11y/ergonia-steward/actions/runs/${runId}`, nonce, program_sha256: programSha, stage: "execute", cause: "spawn failed: spawn sudo EACCES" },
+    });
+    let nonce = await nonceOf();
+    expect(nonce).toMatch(/^[0-9a-f]{32}$/);
+    // Wrong nonce: refused, nothing chained.
+    const wrong = await api("POST", "/api/verifiers/leaderboard-replay/runner-error", { token: founder.secret, body: errorReport("0".repeat(32), "100") });
+    expect(wrong.status).toBe(409);
+    // Three runner errors: three re-dispatches, each with a fresh nonce.
+    const seen = new Set<string>([nonce]);
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      mockRun(String(100 + attempt));
+      const r = await api("POST", "/api/verifiers/leaderboard-replay/runner-error", { token: founder.secret, body: errorReport(nonce, String(100 + attempt)) });
+      expect(r.status, JSON.stringify(r.body)).toBe(200);
+      expect(r.body.verdict).toBeNull();
+      expect(r.body.redispatched).toBe(true);
+      expect(r.body.dispatches_so_far).toBe(attempt);
+      expect(r.body.submission.status).toBe("pending");
+      const ev = await api("GET", "/api/events?kind=runner_error&limit=1");
+      expect(ev.body.events[0].payload).toMatchObject({ submission_id: sid, verifier: "leaderboard-replay@1", stage: "execute", cause: "spawn failed: spawn sudo EACCES", run_id: String(100 + attempt), nonce, dispatches_so_far: attempt });
+      nonce = await nonceOf();
+      expect(seen.has(nonce)).toBe(false);
+      seen.add(nonce);
+    }
+    // The old nonce is dead after a re-dispatch.
+    const stale = await api("POST", "/api/verifiers/leaderboard-replay/runner-error", { token: founder.secret, body: errorReport([...seen][1]!, "150") });
+    expect(stale.status).toBe(409);
+    // Fourth error: exhausted, no dispatch, still pending, flagged for the steward.
+    mockRun("200");
+    const last = await api("POST", "/api/verifiers/leaderboard-replay/runner-error", { token: founder.secret, body: errorReport(nonce, "200") });
+    expect(last.status).toBe(200);
+    expect(last.body.redispatched).toBe(false);
+    expect(last.body.dispatches_so_far).toBe(4);
+    expect((await lastEvent("verifier_check")).payload).toMatchObject({ stage: "dispatch", result: "redispatch_exhausted", evidence: { dispatches: 4, max_redispatch: 3 } });
+    expect((await api("GET", `/api/tasks/${taskId}`)).body.submissions[0].status).toBe("pending");
+    // No credit moved, the chain holds.
+    expect((await api("GET", "/api/me", { token: c.secret })).body.credits).toBe(100);
+    expect((await api("GET", "/api/attest")).body.ok).toBe(true);
+    // Exhausted: no report is accepted on the dead nonce; the human's /run dispatches afresh.
+    mockRun("300");
+    const dead = await api("POST", "/api/verifiers/leaderboard-replay/verdict", {
+      token: founder.secret,
+      body: { submission_id: sid, run: { run_id: "300", run_url: "https://github.com/ianewsfr-a11y/ergonia-steward/actions/runs/300", nonce, program_sha256: programSha, interpreter: "python3", exit_code: 1, duration_ms: 5, output_sha256: "c".repeat(64), byte_equal: false, timed_out: false, network_policy: "restricted" } },
+    });
+    expect(dead.status).toBe(409);
+    fetchMock.get("https://api.github.com").intercept({ path: DISPATCH, method: "POST" }).reply(204);
+    const rerun = await api("POST", "/api/verifiers/leaderboard-replay/run", { token: founder.secret, body: { submission_id: sid } });
+    expect(rerun.status).toBe(200);
+    expect(rerun.body.dispatched).toBe(true);
+    nonce = await nonceOf();
+    // A program failure on that fresh dispatch renders a rejection: the program's fault, not the runner's.
+    mockRun("301");
+    const failed = await api("POST", "/api/verifiers/leaderboard-replay/verdict", {
+      token: founder.secret,
+      body: { submission_id: sid, run: { run_id: "301", run_url: "https://github.com/ianewsfr-a11y/ergonia-steward/actions/runs/301", nonce, program_sha256: programSha, interpreter: "python3", exit_code: 1, duration_ms: 5, output_sha256: "c".repeat(64), byte_equal: false, timed_out: false, network_policy: "restricted" } },
+    });
+    expect(failed.status, JSON.stringify(failed.body)).toBe(200);
+    expect(failed.body.verdict).toBe("rejected");
+  });
+
   it("intake rejects a wrong declared output and a HEAD outside the window", async () => {
     const { subId, taskId } = await arenaHistory();
     const c = await register("candidate");

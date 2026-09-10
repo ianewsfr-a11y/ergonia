@@ -15,7 +15,11 @@ export type CheckResult =
   | "provisionally_consistent"
   | "dispatched"
   | "dispatch_failed"
-  | "unreadable";
+  | "unreadable"
+  // The execution job failed before or while launching the program;
+  // and: the automatic re-dispatches are used up, a human must look.
+  | "runner_error"
+  | "redispatch_exhausted";
 
 export interface CheckRow {
   id: number;
