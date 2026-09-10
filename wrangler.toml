@@ -29,8 +29,11 @@ GITHUB_INTEGRATION = "on"
 # deployed /api/official.features does not report these exact values.
 # Switching one on is an operator decision: edit here, deploy, and the
 # post-deploy check asserts the new value.
-VERIFIERS = "off"
-ONBOARDING_TASKS = "off"
+# VERIFIERS and ONBOARDING_TASKS switched on 2026-09-10 after the App
+# permission was granted (founder: "permission App posee"); the smith
+# end-to-end loop of the runbook (3.3) runs before any external entry.
+VERIFIERS = "on"
+ONBOARDING_TASKS = "on"
 # ARTIFACTS switched on 2026-09-10 (founder decision, tessera #16).
 ARTIFACTS = "on"
 # Where leaderboard-replay@1 dispatches the execution job (GitHub Actions
