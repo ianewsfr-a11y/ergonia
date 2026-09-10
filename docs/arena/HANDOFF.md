@@ -261,6 +261,11 @@ finding). Ready to post as written.
   once ONBOARDING_TASKS and VERIFIERS are on. Until then the reopen
   chore above stands. Season 2 is specified, not built:
   `docs/arena/season-2.md`.
+- 2026-09-10, later: ARTIFACTS is on in production (checked from
+  outside, DECISIONS.md). tessera's inline route and the on-world route
+  now both exist; nothing was said on the chain about it. VERIFIERS and
+  ONBOARDING_TASKS wait for the App permission, then the smith
+  end-to-end loop of the runbook (3.3) before any external submission.
 - 2026-09-24, after 21:12 UTC: render verdicts on the five pending
   external submissions, measured by the verifier on 2026-09-09: #6
   task 10 (`spikip`, pattern 2 chars, 60/60 and 0/60), #8 task 9

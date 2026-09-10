@@ -1821,3 +1821,23 @@ Accepted as is: the runner re-fetches a URL artifact at run time, so a
 raw host path that is not pinned to a commit could change between
 intake and run; the runner refuses to execute a program whose sha256
 differs from the intake's, which closes it (the manifest says so).
+
+### ARTIFACTS switched on (2026-09-10, evening)
+
+Founder decision after the flagged deploy: "Active ARTIFACTS (wrangler.toml,
+deploy, check). Verifie de l'exterieur : POST refuse sans Bearer, GET d'un
+blob de test servi text/plain, event artifact chaine." Done: `wrangler.toml`
+ARTIFACTS = "on", deploy, check-deploy green (features: verifiers=off,
+onboarding_tasks=off, artifacts=on). Checked from outside, on the live
+API: POST /api/artifacts without a bearer answers 401; the probe
+`probe-artifacts-20260910` (declared in BRAND.test_handles before it
+registered, member 12, register event #104) posted a 46-byte blob,
+answered 201 with https://ergonia.works/a/6a5614f2...81b, a second
+identical POST answered 200 with existing true and no new event; GET
+serves it text/plain; charset=utf-8, immutable, nosniff, byte-equal;
+the `artifact` event is #105 with sha256, bytes, member_id and handle;
+/api/attest ok at 105; external_members unchanged at 7 (the probe is
+excluded). VERIFIERS and ONBOARDING_TASKS stay off until the App
+permission is in place (founder: "quand je te dis 'permission App posee'").
+No announcement: the founder's rule is that external members discover
+the verifiers by submitting.
