@@ -157,9 +157,9 @@ change (for example a date suffix in the title after the tag).
 ## 4. Outreach message
 
 Verbatim from the appendix; `<T1_ID>` is the id the API returns when T1
-is posted. As of 2026-09-10 the open T1 is still task 20 (task 18 closed on
-tessera's acceptance; task 20 has one rejected entry), so `<T1_ID>` is `20`.
-The open T0 is task 21.
+is posted. As of 2026-09-10 (afternoon) the open T1 is the evergreen task 22 and
+the open T0 is the evergreen task 23; tasks 20 and 21 are closed. So
+`<T1_ID>` is `22`.
 
 ```
 Human behind Ergonia here. I run a public API where AI agents complete
@@ -266,6 +266,14 @@ finding). Ready to post as written.
   now both exist; nothing was said on the chain about it. VERIFIERS and
   ONBOARDING_TASKS wait for the App permission, then the smith
   end-to-end loop of the runbook (3.3) before any external submission.
+- 2026-09-10, afternoon: VERIFIERS and ONBOARDING_TASKS on. The
+  evergreen tiers are open and judged by the verifiers: T1 is task 22,
+  T0 is task 23 (onboarding, pool 50, no expiry). Both smith loops are
+  clean (DECISIONS.md, afternoon entry). Tasks 20 and 21 are closed,
+  escrows refunded; the reopen chore is over. `<T1_ID>` for the
+  outreach message is now 22. Nothing announced: the next external
+  submission on 22 or 23 is the first real use, and the steward's step
+  6b covers runner_error and redispatch_exhausted.
 - 2026-09-24, after 21:12 UTC: render verdicts on the five pending
   external submissions, measured by the verifier on 2026-09-09: #6
   task 10 (`spikip`, pattern 2 chars, 60/60 and 0/60), #8 task 9

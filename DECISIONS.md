@@ -1841,3 +1841,111 @@ excluded). VERIFIERS and ONBOARDING_TASKS stay off until the App
 permission is in place (founder: "quand je te dis 'permission App posee'").
 No announcement: the founder's rule is that external members discover
 the verifiers by submitting.
+
+## VERIFIERS and ONBOARDING_TASKS on, the smith loops, the evergreen tiers open (2026-09-10, afternoon)
+
+Founder decision, after "permission App posee": VERIFIERS and
+ONBOARDING_TASKS on together (the evergreen T1 with a pool of 50 is an
+onboarding task), deploy, check-deploy green (all three features on), a
+smith end-to-end loop on each tier BEFORE any external entry, then close
+tasks 20 and 21 normally. No announcement: external members discover
+the verifiers by submitting.
+
+### The evergreen tiers
+
+- T1: task 22, `[EVAL-CHAIN-1] ... (evergreen)`, onboarding, pool 50, no
+  expiry, verifier chain-replay@1 (event #106).
+- T0: task 23, `[EVAL-API-0] ... (evergreen)`, same form, verifier
+  leaderboard-replay@1 (event #114).
+- Three draft defects found by the founder-comment refusals and fixed:
+  the conditions carried no control verb the API accepts ("Verified by"
+  is not "verify"); the titles collided with season 1 on the dedupe key
+  (title plus the first 512 chars of a brief that opens with the same
+  paragraph), hence the "(evergreen)" suffix; `scripts/arena/lib/chain.mjs`,
+  the public replay a T1 submitter may cite, ignored onboarding pools
+  (2400 1617 783 against the chain's 2400 1568 832 at head 106).
+  `gen-drafts.mjs` now refuses a condition the API would refuse.
+
+### smith on T1 (chain-replay@1)
+
+Submission 25, HEAD=101 outside the window 104..106: rejected in the
+same request, reason naming the window and saying the two lines were
+otherwise right (event #108). Submission 26, HEAD=109 inside 107..109:
+accepted, 1 credit from the pool (events #111, #112), task 22 open with
+49 left, `/api/attest` ok. Both verdicts in under a second, actor
+`verifier:chain-replay@1`, on behalf of `ergonia-founder`, evidence
+present. The loop is clean.
+
+### smith on T0 (leaderboard-replay@1): three submissions to get a clean loop
+
+Every stage of the chain worked from the first attempt: intake (window,
+declared output against the recomputation), chained dispatch with a
+nonce, the job on a fresh runner with egress limited to ergonia.works
+and port 53 closed (proven against example.com), the report bound to
+the nonce and to a run GitHub confirmed, the verdict rendered by the
+verifier with its evidence. What failed, three times, was the runner
+itself, and each failure is on the chain:
+
+- Submission 27 (event #123, rejected): `spawn sudo EACCES`, the
+  sandbox was 700 for the `t0runner` user, so the job could not enter
+  it. Two more defects surfaced on the way: `github_installations` was
+  empty in production (the installation of 2026-09-04 predates the
+  webhook URL), so the dispatch now reads the installation id from the
+  chained provenance of tasks 15 and 16 (`github_issues`); and
+  `t0-run.yml` had been an invalid workflow file since its first push
+  (a colon in a step name), which the 422 on dispatch did not explain.
+- Submission 28 (event #128, rejected): `Permission denied` opening
+  `lb.py`: `/home/runner` is not traversable by another user and
+  Python opens the program by its absolute path. Exit 2 in 27 ms,
+  classified as a program failure because the classification was by
+  exit code.
+- Founder rule, then: two classes of failure, two paths. An
+  infrastructure failure (before or while launching the program:
+  sandbox, sudo, network, setup) renders NO verdict: a `runner_error`
+  event is chained (cause, stage, run id, nonce), the submission stays
+  pending, the Worker dispatches the job again with a fresh nonce, at
+  most 3 times, then chains `redispatch_exhausted` for the steward to
+  flag (DAILY-RUN step 6b). Only a program that ran and failed (exit,
+  timeout, output) produces a rejection. Tested on both paths in the
+  Worker and the runner (`classifyExecution`). The runner also gained a
+  pre-flight as `t0runner` (file readable, directory enterable,
+  interpreter resolvable) whose failure is a runner_error, and the
+  sandbox moved to `/tmp`.
+- Submission 29 (HEAD=137): the new path was exercised at once, by a
+  defect of the same fix (`work/` no longer created): four dispatches,
+  four `runner_error` events #141, #144, #147, #150 with the cause and
+  their nonces, no verdict, then `redispatch_exhausted` (#152), the
+  submission still pending, no credit moved. After the one-line fix
+  (steward `f36896a`), `POST /api/verifiers/leaderboard-replay/run`
+  through founder-comment re-dispatched it: the program ran as
+  `t0runner` under the egress rule, exited 0 in 1251 ms, output
+  byte-equal, and the verdict is accepted (event #155, run
+  34477465253, nonce `1e6c0150...`, run confirmed with GitHub). The
+  loop is clean.
+
+The rejections of 27 and 28 stay on the chain as rendered: each was
+exact with respect to the report of its time, and the reasons name the
+run URLs where a reader can see the cause.
+
+### Closed, opened, decided
+
+- Tasks 20 (T1, one rejected entry) and 21 (T0, no entry) closed by
+  `POST /api/tasks/:id/close` through founder-comment; their 1-credit
+  escrows returned to the founder. The reopen chore ends today.
+- The 24-hour rule on external comments (founder, after erpin's #26
+  waited from 09:20 to 11:54 UTC for #27): DAILY-RUN step 5, tracker
+  note "reponse tardive, regle ajoutee".
+- VERIFIERS stays on for external members: tasks 22 and 23 are open,
+  judged by the verifiers, manifests linked from their conditions.
+  Nothing is announced; the next external submission on either is the
+  first real use.
+- founder-comment accepts three more endpoints: `/api/verifiers/<name>/run`,
+  `/api/tasks/<id>/close`, and task drafts with kind, pool_size,
+  verifier and a null expiry.
+
+### Deliberately not done
+
+- No reply on the chain about the verifiers or the artifacts (rule: no
+  announcement). erpin's #27 says only what had already changed.
+- No re-judgement of 27 and 28.
+- Season 2, third-party verifier binding: unchanged.
