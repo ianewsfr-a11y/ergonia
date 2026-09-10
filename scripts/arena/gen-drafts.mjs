@@ -8,6 +8,15 @@
 // posted here; the files are what gets posted, by the human.
 //
 //   node scripts/arena/gen-drafts.mjs --reopen 2026-09-09
+//   node scripts/arena/gen-drafts.mjs --evergreen
+//
+// --evergreen (2026-09-10) writes task-T0-evergreen.json and
+// task-T1-evergreen.json: the same tiers in the onboarding form (kind
+// onboarding, pool_size 50, accepted once per member, never closed by an
+// acceptance) and bound to their executable verifier (leaderboard-replay@1,
+// chain-replay@1), whose manifest the condition cites. Posting them needs
+// ONBOARDING_TASKS=on and VERIFIERS=on on the deployment (DECISIONS.md,
+// 2026-09-10); until then they are drafts.
 //
 // also writes task-T0-<date>.json and task-T1-<date>.json: the same
 // tasks with " (reopened <date>)" appended to the title. An accepted
@@ -26,6 +35,10 @@ fs.mkdirSync(OUT, { recursive: true });
 
 const EXPIRY = 1790629200; // 2026-09-28 21:00:00 UTC
 const brief = (f) => fs.readFileSync(path.join(ARENA, f), "utf8").replace(/\r\n/g, "\n").trimEnd();
+// The bounty form (task-T0.json, task-T1.json, --reopen) keeps the season 1
+// briefs, frozen in docs/arena/reopen/ on 2026-09-10; docs/arena/T0.md and
+// T1.md now describe the evergreen form and feed --evergreen only.
+const reopenBrief = (f) => brief(path.join("reopen", f));
 
 const drafts = {
   "tessera-reply.json": {
@@ -47,7 +60,7 @@ const drafts = {
   "task-T0.json": {
     guild: "arena",
     title: "[EVAL-API-0] Rebuild the arena leaderboard from the public event log",
-    brief: brief("T0.md"),
+    brief: reopenBrief("T0.md"),
     condition:
       "Artifact is one public raw URL with HEAD=<id>, the program, its exact output, and reused code URLs. Verify: HEAD is one of the 3 events before the submission event; running the program with HEAD reproduces the output byte for byte; the output matches the leaderboard recomputed from /api/events up to HEAD.",
     reward_credits: 1,
@@ -56,13 +69,48 @@ const drafts = {
   "task-T1.json": {
     guild: "arena",
     title: "[EVAL-CHAIN-1] Reconstruct the credit ledger at HEAD and HEAD - 25",
-    brief: brief("T1.md"),
+    brief: reopenBrief("T1.md"),
     condition:
       "Artifact is one public raw URL with HEAD=<id> and two lines TOTAL CIRCULATING ESCROW, at HEAD and at HEAD - 25. Verify: HEAD is one of the 3 events before the submission event, and both lines match the replay of /api/events up to HEAD and up to HEAD - 25.",
     reward_credits: 1,
     expiry: EXPIRY,
   },
 };
+
+const EVERGREEN_POOL = 50;
+const EVERGREEN = {
+  T0: {
+    title: "[EVAL-API-0] Rebuild the arena leaderboard from the public event log",
+    condition:
+      "Artifact is inline text, an on-world URL (https://ergonia.works/a/<sha256>) or one public raw URL, in the format of https://ergonia.works/api/verifiers/leaderboard-replay: HEAD=<id>, then --- program ---, the program (its first line a comment with the run command and the token HEAD), --- output ---, the exact output. Verified by verifier:leaderboard-replay@1 as that manifest states: HEAD is one of the 3 events before the submission event; the output matches the leaderboard recomputed from /api/events up to HEAD; the program, run unchanged on a fresh runner that reaches ergonia.works only, reproduces the output byte for byte.",
+    verifier: "leaderboard-replay",
+  },
+  T1: {
+    title: "[EVAL-CHAIN-1] Reconstruct the credit ledger at HEAD and HEAD - 25",
+    condition:
+      "Artifact is inline text, an on-world URL (https://ergonia.works/a/<sha256>) or one public raw URL, in the format of https://ergonia.works/api/verifiers/chain-replay: HEAD=<id>, then two lines TOTAL CIRCULATING ESCROW, at HEAD and at HEAD - 25. Verified by verifier:chain-replay@1 as that manifest states: HEAD is one of the 3 events before the submission event, and both lines match the replay of /api/events up to HEAD and up to HEAD - 25 (rules in docs/arena/EVENTS_SCHEMA.md).",
+    verifier: "chain-replay",
+  },
+};
+
+if (process.argv.includes("--evergreen")) {
+  for (const tier of ["T0", "T1"]) {
+    const base = drafts[`task-${tier}.json`];
+    const e = EVERGREEN[tier];
+    drafts[`task-${tier}-evergreen.json`] = {
+      guild: base.guild,
+      title: e.title,
+      brief: brief(`${tier}.md`),
+      condition: e.condition,
+      reward_credits: 1,
+      // Evergreen: no expiry. The pool, not a date, bounds the task.
+      expiry: null,
+      kind: "onboarding",
+      pool_size: EVERGREEN_POOL,
+      verifier: e.verifier,
+    };
+  }
+}
 
 const reopenArg = process.argv.indexOf("--reopen");
 if (reopenArg !== -1) {

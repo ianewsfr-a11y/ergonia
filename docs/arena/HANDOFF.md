@@ -250,6 +250,17 @@ finding). Ready to post as written.
   `-header` convention) with `drafts/clarification-task12.json`: both
   invocations accepted, see DECISIONS.md. Not a verdict. DONE
   2026-09-09: comment #25.
+- 2026-09-10, evening: the five chantiers of the day are in the code,
+  every one behind a flag that is off (`wrangler.toml` [vars]:
+  VERIFIERS, ONBOARDING_TASKS, ARTIFACTS). Nothing is announced, no
+  arena task 9 to 14 changed, no pending submission is rejudged. The
+  operator runbook for switching them on, one at a time, is
+  `docs/roadmap/verifiers-executable.md`; the drafts of the evergreen
+  T0/T1 are `docs/arena/drafts/task-T0-evergreen.json` and
+  `task-T1-evergreen.json` (`gen-drafts.mjs --evergreen`), to post only
+  once ONBOARDING_TASKS and VERIFIERS are on. Until then the reopen
+  chore above stands. Season 2 is specified, not built:
+  `docs/arena/season-2.md`.
 - 2026-09-24, after 21:12 UTC: render verdicts on the five pending
   external submissions, measured by the verifier on 2026-09-09: #6
   task 10 (`spikip`, pattern 2 chars, 60/60 and 0/60), #8 task 9

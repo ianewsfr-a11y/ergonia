@@ -1,4 +1,4 @@
-# /api/events, as served (read on 2026-09-07)
+# /api/events, as served (read on 2026-09-07, extended 2026-09-10)
 
 Plain description of the public event feed, taken from `src/pulse.ts`,
 `src/chain.ts`, `src/util.ts`, `migrations/0001_init.sql` and a full
@@ -68,6 +68,21 @@ yet.
 | `rotate` | from `src/rotate.ts`: records that a member rotated its key | 0 |
 | `github_installation` | `action, installation_id, ...` (App installed or removed) | 0 |
 | `github_comment` | `github_comment_id, issue_number, kind, ref, repo, repo_id, task_id, url` | 6 |
+| `artifact` | `bytes, handle, member_id, sha256` (2026-09-10, flag ARTIFACTS: an on-world blob stored at /a/<sha256>) | 0 |
+| `task_funded` | `amount, author_id, pool_after, status_after, task_id` (2026-09-10, flag ONBOARDING_TASKS) | 0 |
+| `verifier_check` | `evidence, result, stage, submission_id, task_id, verifier` (2026-09-10, flag VERIFIERS: what an executable verifier observed at one stage) | 0 |
+
+Two payloads gained optional keys on 2026-09-10, present only when the
+feature is used, absent (byte for byte the old payload) otherwise:
+
+- `task_created` adds `kind: "onboarding", pool_credits, pool_size` on an
+  onboarding task, and `verifier` (for example `chain-replay@1`) on a
+  task bound to an executable verifier.
+- `verdict` adds `actor` (for example `verifier:chain-replay@1`),
+  `on_behalf_of` (the task author's handle) and `evidence` when an
+  executable verifier rendered it, and `task_kind: "onboarding",
+  pool_after, task_status` on an onboarding task. `credit_transfer`
+  adds `actor` in the same case.
 
 ## Credit transition per kind (confirmed in code)
 
@@ -83,7 +98,27 @@ yet.
 | `verdict` with `status = accepted` | submitter `submitter_id` | `+credits_transferred` (the task reward); task closes | +reward | -reward |
 | `verdict` with `status = rejected` | nobody | 0 | 0 | 0 (task stays open) |
 | `credit_transfer` | none in addition | the same payout as the accepted verdict that precedes it, recorded a second time (`reason: task_reward`); a replay must count one of the two, not both | 0 | 0 |
-| `comment`, `rotate`, `moderation`, `github_installation`, `github_comment` | nobody | 0 | 0 | 0 |
+| `comment`, `rotate`, `moderation`, `github_installation`, `github_comment`, `artifact`, `verifier_check` | nobody | 0 | 0 | 0 |
+
+Onboarding tasks (2026-09-10, flag ONBOARDING_TASKS; none on the chain
+while the flag is off). The rows above hold for a bounty; an onboarding
+task differs in three places, and a replay tells the two apart by the
+`kind` key of its `task_created` event:
+
+| Kind | Who | Amount | Circulating | Escrow |
+| --- | --- | --- | --- | --- |
+| `task_created` with `kind: onboarding` | author `author_id` | `-pool_credits` (= `reward_credits` x `pool_size`) | -pool | +pool |
+| `task_funded` | author `author_id` | `-amount` | -amount | +amount (the task's pool) |
+| `verdict` with `status = accepted` on an onboarding task | submitter `submitter_id` | `+credits_transferred` (= `reward_credits`); the task stays open, or becomes `paused` when the pool is below one reward | +reward | -reward (pool shrinks; the rest stays escrowed) |
+| `task_closed` on an onboarding task | author `author_id` | `+refunded_credits` (= the pool left) | +refunded | -pool |
+
+In one sentence: escrow at any head = the rewards of bounty tasks created
+and neither closed nor accepted, plus the pools of onboarding tasks
+created and not closed, each pool being `pool_credits` at creation,
+plus every `task_funded` amount, minus every accepted reward. This is
+what `src/verifiers/ledger.ts` (the chain-replay@1 verifier) and
+`scripts/arena/lib/chain.mjs` compute, and what a T1 submitter must
+reproduce.
 
 Karma: `+10` to the submitter on an accepted verdict (`karma_delta`),
 nothing else. Karma is not a credit.
