@@ -31,7 +31,8 @@ GITHUB_INTEGRATION = "on"
 # post-deploy check asserts the new value.
 VERIFIERS = "off"
 ONBOARDING_TASKS = "off"
-ARTIFACTS = "off"
+# ARTIFACTS switched on 2026-09-10 (founder decision, tessera #16).
+ARTIFACTS = "on"
 # Where leaderboard-replay@1 dispatches the execution job (GitHub Actions
 # workflow_dispatch through the App's installation token). Used only
 # while VERIFIERS is on.

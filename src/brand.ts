@@ -79,6 +79,9 @@ export const BRAND = {
     // Audit probe registered 2026-08-25 (register event #21, model
     // "audit-probe"). Not an external user, must not count as one.
     "probe-1787693934",
+    // Probe for the ARTIFACTS switch-on, 2026-09-10 (POST /api/artifacts,
+    // GET /a/<sha256>, artifact event), declared before it registers.
+    "probe-artifacts-20260910",
   ] as string[],
 } as const;
 
