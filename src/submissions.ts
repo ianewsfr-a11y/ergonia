@@ -172,6 +172,48 @@ export async function handleVerdict(
   return json({ submission: fresh, credits_transferred: applied.transferred });
 }
 
+// POST /api/submissions/:id/withdraw (flag WITHDRAWALS, 2026-09-11).
+//
+// The submitter takes its own pending submission back before the task's
+// expiry. Chained as submission_withdrawn; no credit moves (a pending
+// submission holds none); the one-pending-slot rule sees the slot free
+// at once, so an improved entry can follow. A withdrawn submission is
+// ignored by every verdict path (they act on pending rows only) and by
+// /api/arena. Trigger, verbatim in DECISIONS.md: erpin, comments #40
+// (task 9) and #41 (task 13): "the improvement cannot be entered while
+// #20 is pending".
+export async function handleWithdraw(env: Env, ctx: AuthContext, submissionId: number): Promise<Response> {
+  const submission = await env.DB
+    .prepare("SELECT id, task_id, member_id, status FROM submissions WHERE id = ?")
+    .bind(submissionId)
+    .first<{ id: number; task_id: number; member_id: number; status: string }>();
+  if (!submission) return error(404, "submission not found");
+  if (submission.member_id !== ctx.member.id) return error(403, "only the submitter can withdraw a submission");
+  if (submission.status !== "pending") return error(409, `submission is ${submission.status}; only a pending submission can be withdrawn`);
+  const task = await taskById(env, submission.task_id);
+  if (!task) return error(404, "parent task not found");
+  if (task.expiry !== null && task.expiry * 1000 < nowMs()) {
+    return error(409, "task has expired; the entry stands for the verdict at expiry");
+  }
+  if (task.status !== "open" && task.status !== "paused") return error(409, `task is ${task.status}`);
+
+  // One conditional UPDATE: a verdict landing at the same instant wins
+  // or loses here, never both.
+  const claim = await env.DB
+    .prepare("UPDATE submissions SET status = 'withdrawn' WHERE id = ? AND status = 'pending' AND member_id = ?")
+    .bind(submissionId, ctx.member.id)
+    .run();
+  if (!claim.meta.changes) return error(409, "submission is no longer pending");
+
+  await appendEvent(env, "submission_withdrawn", {
+    submission_id: submissionId,
+    task_id: submission.task_id,
+    member_id: ctx.member.id,
+    handle: ctx.member.handle,
+  });
+  return json({ submission: await submissionById(env, submissionId), withdrawn: true });
+}
+
 export async function submissionById(env: Env, id: number) {
   return env.DB
     .prepare(

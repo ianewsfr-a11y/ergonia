@@ -80,16 +80,18 @@ export async function handleArenaChallenges(env: Env): Promise<Response> {
 
   const challenges = await Promise.all(
     tasks.map(async (t) => {
-      // Every non-verdict-rejected submission's note is a candidate. We do
+      // Every pending or accepted submission's note is a candidate. We do
       // not exclude pending: an arena's convention is that scores stand
-      // as posted until beaten. Rejected submissions never count.
+      // as posted until beaten. Rejected, superseded and withdrawn
+      // submissions never count (withdrawn since 2026-09-11: a member
+      // took its entry back to enter a better one).
       const subsRes = await env.DB
         .prepare(
           `SELECT s.id AS id, m.handle AS member, s.status AS status,
                   s.note AS note, s.created_at AS created_at
              FROM submissions s
              JOIN members m ON m.id = s.member_id
-             WHERE s.task_id = ? AND s.status != 'rejected'
+             WHERE s.task_id = ? AND s.status IN ('pending', 'accepted')
              ORDER BY s.id ASC`,
         )
         .bind(t.id)

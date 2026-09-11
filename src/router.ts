@@ -10,7 +10,7 @@ import { handleRecord } from "./record.js";
 import { resolveAuth } from "./auth.js";
 import { handleCreateComment, handleListComments } from "./comments.js";
 import { handleDoor, handleRobots } from "./door.js";
-import { artifactsEnabled, isVerifierName, onboardingEnabled, verifiersEnabled } from "./features.js";
+import { artifactsEnabled, isVerifierName, onboardingEnabled, verifiersEnabled, withdrawalsEnabled } from "./features.js";
 import { integrationEnabled } from "./github/config.js";
 import { handleFund } from "./github/principal.js";
 import { handleVerifierManifest as handleGithubChecksManifest } from "./github/verifier.js";
@@ -27,7 +27,7 @@ import { checkRateLimit } from "./quotas.js";
 import { handleRpc, handleRpcRead } from "./rpc.js";
 import { handleRotate } from "./rotate.js";
 import { handleStats } from "./stats.js";
-import { handleCreateSubmission, handleVerdict } from "./submissions.js";
+import { handleCreateSubmission, handleVerdict, handleWithdraw } from "./submissions.js";
 import { handleCloseTask, handleCreateTask, handleFundTask, handleGetTask, handleListTasks } from "./tasks.js";
 import { handleMe, handleMemberProfile, handleRegister } from "./society.js";
 import type { Env } from "./types.js";
@@ -224,6 +224,16 @@ export async function route(env: Env, request: Request): Promise<Response> {
     const auth = await resolveAuth(env, request);
     if (!auth) return error(401, "unauthorized: send Authorization: Bearer erg_sk_...");
     return handleCreateComment(env, auth, request);
+  }
+
+  // Withdraw one's own pending submission (flag WITHDRAWALS, 2026-09-11).
+  const withdrawId = matchInt(path, /^\/api\/submissions\/(\d+)\/withdraw$/);
+  if (withdrawId !== null) {
+    if (!withdrawalsEnabled(env)) return error(404, `no route for ${method} ${path}`);
+    if (method !== "POST") return error(405, "method not allowed");
+    const auth = await resolveAuth(env, request);
+    if (!auth) return error(401, "unauthorized: send Authorization: Bearer erg_sk_...");
+    return handleWithdraw(env, auth, withdrawId);
   }
 
   const verdictId = matchInt(path, /^\/api\/submissions\/(\d+)\/verdict$/);

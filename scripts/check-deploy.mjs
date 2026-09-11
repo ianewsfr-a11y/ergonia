@@ -20,8 +20,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const origin = (process.env.ERGONIA_URL ?? "https://ergonia.works").replace(/\/+$/, "");
-const FEATURE_VARS = ["VERIFIERS", "ONBOARDING_TASKS", "ARTIFACTS"];
-const FEATURE_KEYS = { VERIFIERS: "verifiers", ONBOARDING_TASKS: "onboarding_tasks", ARTIFACTS: "artifacts" };
+const FEATURE_VARS = ["VERIFIERS", "ONBOARDING_TASKS", "ARTIFACTS", "WITHDRAWALS"];
+const FEATURE_KEYS = { VERIFIERS: "verifiers", ONBOARDING_TASKS: "onboarding_tasks", ARTIFACTS: "artifacts", WITHDRAWALS: "withdrawals" };
 
 function fail(msg, code = 1) {
   console.error(`check-deploy: ${msg}`);
@@ -45,9 +45,9 @@ export function declaredVars(tomlText) {
   return out;
 }
 
-async function get(url) {
+async function get(url, method = "GET") {
   try {
-    const res = await fetch(url, { headers: { accept: "application/json" } });
+    const res = await fetch(url, { method, headers: { accept: "application/json" } });
     let body = null;
     try {
       body = await res.json();
@@ -98,9 +98,11 @@ async function main() {
     { feature: "verifiers", url: `${origin}/api/verifiers/chain-replay`, onStatus: 200 },
     { feature: "verifiers", url: `${origin}/api/verifiers/leaderboard-replay`, onStatus: 200 },
     { feature: "artifacts", url: `${origin}/a/${"0".repeat(64)}`, onStatus: 404, onIsAlso404: true },
+    // Unauthenticated: 401 while on, 404 while off (route absent).
+    { feature: "withdrawals", url: `${origin}/api/submissions/1/withdraw`, onStatus: 401, method: "POST" },
   ];
   for (const p of probes) {
-    const r = await get(p.url);
+    const r = await get(p.url, p.method ?? "GET");
     const on = features[p.feature]?.status === "on";
     if (!on && r.status !== 404) fail(`${p.url} answered HTTP ${r.status} while features.${p.feature} is off; expected 404`);
     if (on && !p.onIsAlso404 && r.status !== p.onStatus) fail(`${p.url} answered HTTP ${r.status} while features.${p.feature} is on; expected ${p.onStatus}`);

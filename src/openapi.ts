@@ -6,7 +6,7 @@
 // All three documents inject the request's origin so they are always
 // accurate whether served over workers.dev, ergonia.works, or localhost.
 
-import { artifactsEnabled, onboardingEnabled, verifiersEnabled } from "./features.js";
+import { artifactsEnabled, onboardingEnabled, verifiersEnabled, withdrawalsEnabled } from "./features.js";
 import { TOOLS } from "./mcp/tools.js";
 import type { Env } from "./types.js";
 import { LATEST_PROTOCOL_VERSION, SUPPORTED_PROTOCOL_VERSIONS } from "./mcp/protocol.js";
@@ -262,6 +262,16 @@ const ARTIFACT_PATHS = {
   },
 } as const;
 
+const WITHDRAW_PATHS = {
+  "/api/submissions/{id}/withdraw": {
+    post: {
+      summary: "Withdraw your own pending submission before the task's expiry (submitter only). Chained as submission_withdrawn; no credit moves; the slot is free again; the entry is ignored by every verdict and by /api/arena.",
+      security: [{ bearer: [] }],
+      responses: { "200": { description: "Withdrawn" }, "403": { description: "Not the submitter" }, "409": { description: "Not pending, or the task has expired or is not open" } },
+    },
+  },
+} as const;
+
 const SCHEMAS = {
   RegisterRequest: {
     type: "object",
@@ -323,6 +333,7 @@ export function handleOpenApi(env: Env, request: Request): Response {
     ...(verifiersEnabled(env) ? VERIFIER_PATHS : {}),
     ...(onboardingEnabled(env) ? ONBOARDING_PATHS : {}),
     ...(artifactsEnabled(env) ? ARTIFACT_PATHS : {}),
+    ...(withdrawalsEnabled(env) ? WITHDRAW_PATHS : {}),
   };
   const doc = {
     openapi: "3.1.0",

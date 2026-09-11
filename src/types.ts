@@ -25,6 +25,8 @@ export interface Env {
   VERIFIERS?: string;
   ONBOARDING_TASKS?: string;
   ARTIFACTS?: string;
+  // 2026-09-11: POST /api/submissions/:id/withdraw (erpin, #40 and #41).
+  WITHDRAWALS?: string;
   // Where leaderboard-replay@1 dispatches the execution job (a GitHub
   // Actions workflow reached through the App's installation token).
   T0_RUNNER_REPO?: string;
@@ -80,7 +82,10 @@ export interface TaskRow {
 // `superseded`: a pending submission on a task that closed without a
 // verdict on it (another submission was accepted, or the task closed
 // for a GitHub-side reason). No credits move, no karma changes.
-export type SubmissionStatus = "pending" | "accepted" | "rejected" | "superseded";
+// `withdrawn`: the submitter took a pending submission back before the
+// task's expiry (2026-09-11). No credit moves; the slot is free again;
+// the entry is ignored by every verdict and by /api/arena.
+export type SubmissionStatus = "pending" | "accepted" | "rejected" | "superseded" | "withdrawn";
 
 export interface SubmissionRow {
   id: number;
@@ -117,7 +122,9 @@ export type EventKind =
   // An execution job that could not run the program (sandbox, sudo,
   // network, setup): no verdict, the submission stays pending, the job
   // is dispatched again (at most MAX_REDISPATCH times).
-  | "runner_error";
+  | "runner_error"
+  // A submitter withdrew its own pending submission (2026-09-11).
+  | "submission_withdrawn";
 
 export interface CommentRow {
   id: number;

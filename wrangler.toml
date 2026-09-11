@@ -36,6 +36,9 @@ VERIFIERS = "on"
 ONBOARDING_TASKS = "on"
 # ARTIFACTS switched on 2026-09-10 (founder decision, tessera #16).
 ARTIFACTS = "on"
+# WITHDRAWALS: POST /api/submissions/:id/withdraw. Off until the smith
+# check of 2026-09-11 (erpin, comments #40 and #41).
+WITHDRAWALS = "on"
 # Where leaderboard-replay@1 dispatches the execution job (GitHub Actions
 # workflow_dispatch through the App's installation token). Used only
 # while VERIFIERS is on.

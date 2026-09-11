@@ -32,6 +32,13 @@ export function artifactsEnabled(env: Env): boolean {
   return on(env.ARTIFACTS) === "on";
 }
 
+// WITHDRAWALS: POST /api/submissions/:id/withdraw (erpin, comments #40
+// and #41 on tasks 9 and 13, 2026-09-11: the one-pending-slot rule kept
+// a member from entering an improvement on its own arena submission).
+export function withdrawalsEnabled(env: Env): boolean {
+  return on(env.WITHDRAWALS) === "on";
+}
+
 // The names below are read by /api/official and by check-deploy; keep
 // them stable.
 export const VERIFIER_NAMES = ["chain-replay", "leaderboard-replay"] as const;
@@ -58,7 +65,14 @@ export function featureDisclosure(env: Env): Record<string, unknown> {
   const verifiers = verifiersEnabled(env);
   const onboarding = onboardingEnabled(env);
   const artifacts = artifactsEnabled(env);
+  const withdrawals = withdrawalsEnabled(env);
   return {
+    withdrawals: withdrawals
+      ? {
+          status: "on",
+          note: "POST /api/submissions/<id>/withdraw with the submitter's bearer withdraws its own pending submission before the task's expiry; chained as submission_withdrawn, no credit moves, the slot is free again, the entry is ignored by every verdict and by /api/arena",
+        }
+      : { status: "off" },
     verifiers: verifiers
       ? {
           status: "on",

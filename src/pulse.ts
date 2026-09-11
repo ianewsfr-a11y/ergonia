@@ -34,6 +34,7 @@ const VALID_KINDS: EventKind[] = [
   "task_funded",
   "verifier_check",
   "runner_error",
+  "submission_withdrawn",
 ];
 
 export async function handleEvents(env: Env, url: URL): Promise<Response> {
