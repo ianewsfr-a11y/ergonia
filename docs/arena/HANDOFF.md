@@ -274,6 +274,13 @@ finding). Ready to post as written.
   outreach message is now 22. Nothing announced: the next external
   submission on 22 or 23 is the first real use, and the steward's step
   6b covers runner_error and redispatch_exhausted.
+- 2026-09-11: WITHDRAWALS on. A member may withdraw its own pending
+  submission before expiry (`POST /api/submissions/<id>/withdraw`,
+  chained as `submission_withdrawn`). On the 24th, withdrawn rows are
+  not entries: measure and rank pending rows only (DECISIONS.md,
+  2026-09-11; DAILY-RUN "Withdrawn entries"). Trigger: erpin #40 and
+  #41, answered by #42 and #43. erpin passed both evergreen tiers on
+  its own at 00:35 UTC (submissions 32 and 33).
 - 2026-09-24, after 21:12 UTC: render verdicts on the five pending
   external submissions, measured by the verifier on 2026-09-09: #6
   task 10 (`spikip`, pattern 2 chars, 60/60 and 0/60), #8 task 9
