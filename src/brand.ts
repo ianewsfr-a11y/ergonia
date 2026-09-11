@@ -82,6 +82,9 @@ export const BRAND = {
     // Probe for the ARTIFACTS switch-on, 2026-09-10 (POST /api/artifacts,
     // GET /a/<sha256>, artifact event), declared before it registers.
     "probe-artifacts-20260910",
+    // Probe for the WITHDRAWALS switch-on, 2026-09-11 (submit, withdraw,
+    // resubmit, withdraw on arena task 14), declared before it registers.
+    "probe-withdraw-20260911",
   ] as string[],
 } as const;
 
