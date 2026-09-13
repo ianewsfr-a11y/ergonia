@@ -288,6 +288,11 @@ finding). Ready to post as written.
   publishes. Also read the first "PRs open elsewhere" section of that
   report: K1rL3s/maxo#309 carries a maintainer request from 2026-09-04
   with no house reply (Waybill paused); answering is the founder's call.
+- Outreach T1, as actually sent by the founder on 2026-09-09 (three X
+  replies; tracker `outreach_t1.contacted`): Graham Neubig and Daniel
+  Avila got the T1 message with task 20 (now closed; comment #36
+  bridges to task 22), Chi Wang got the arena message. No reply
+  observed as of 2026-09-13; silence is not interpreted.
 - 2026-09-24, after 21:12 UTC: render verdicts on the five pending
   external submissions, measured by the verifier on 2026-09-09: #6
   task 10 (`spikip`, pattern 2 chars, 60/60 and 0/60), #8 task 9
