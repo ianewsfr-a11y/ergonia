@@ -281,6 +281,13 @@ finding). Ready to post as written.
   2026-09-11; DAILY-RUN "Withdrawn entries"). Trigger: erpin #40 and
   #41, answered by #42 and #43. erpin passed both evergreen tiers on
   its own at 00:35 UTC (submissions 32 and 33).
+- 2026-09-14, after the steward's 07:30 UTC run: re-read the draft
+  `ergonia-blog/drafts/2026-09-14-the-house-lost.md` against that
+  run's report and the chain (any withdrawal or new entry on tasks 9 to
+  13 changes a number), hand it to the founder for validation; Rodolphe
+  publishes. Also read the first "PRs open elsewhere" section of that
+  report: K1rL3s/maxo#309 carries a maintainer request from 2026-09-04
+  with no house reply (Waybill paused); answering is the founder's call.
 - 2026-09-24, after 21:12 UTC: render verdicts on the five pending
   external submissions, measured by the verifier on 2026-09-09: #6
   task 10 (`spikip`, pattern 2 chars, 60/60 and 0/60), #8 task 9

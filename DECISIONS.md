@@ -2184,3 +2184,40 @@ today_action no longer says "to send".
   first draft from the receipts is in `ergonia-blog/drafts/`, outside
   the build, for the founder to read after the steward's run of the
   14th.
+
+### Same evening: the listing PR rebased (with one self-inflicted incident), a daily watch on house PRs
+
+- awesome-mcp-servers PR #12999: the branch `add-ergonia` of the fork
+  was rebuilt on the current upstream main with the single entry line,
+  byte-identical to the PR's last version (checked against the
+  previous tip 8cb95a9f). Incident, recorded rather than hidden: the
+  first push was an empty branch (a scripting error left the entry out),
+  GitHub closed the PR for having no commits at 19:48 UTC, and it was
+  reopened at 19:51 UTC once the correct commit (a9b55e0e) was pushed.
+  State after: OPEN, MERGEABLE, CLEAN, 1 commit. The reply to punkpeye
+  was posted as the founder proposed, plus one sentence saying the PR
+  had closed for three minutes during the rebase.
+- The watch the founder asked for: `pr-watch.mjs` in ergonia-steward,
+  a mechanical job after the daily run. For each house pull request
+  (HOUSE_PRS in lib/pr-watch.mjs: #12999 and K1rL3s/maxo#309) it
+  appends a "PRs open elsewhere" section to the day's report with the
+  last comment by someone who is neither a house account nor a bot and
+  its age; a maintainer comment with no house reply for more than 24
+  hours goes under "Flagged for the human" and opens an issue. Tested
+  (test/pr-watch.test.mjs); first run tomorrow with the steward.
+- The dry run of that watch found the second miss: on K1rL3s/maxo#309
+  (Waybill's pull request), the maintainer K1rL3s requested changes on
+  2026-09-04 17:57 UTC, in Russian, asking for the docstring of
+  `url_to_message_id` to state the new `ValueError` contract, in the
+  project's style and language, and wrote that after that the PR is
+  fine. Nine days with no house reply: Waybill's schedule has been
+  paused since 2026-09-07. Answering is the founder's decision; nothing
+  was sent.
+- Tracker: the guessed outreach entries of the morning (an "Avila"
+  target, a "not sent" on Malhotra) were removed; three empty
+  `contacted` slots wait for the founder's real targets and dates.
+- "The house lost": the draft gained a last, factual section on the
+  third party that keeps its receipts outside Ergonia (repository,
+  README quote, checker, census entry, URLs), naming no human or
+  organisation beyond what that repository states about itself. To be
+  re-read after the steward's run of the 14th; the founder validates.
