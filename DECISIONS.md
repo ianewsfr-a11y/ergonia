@@ -2102,3 +2102,85 @@ member through both verifiers, after tessera the day before.
 Nothing else changed: arena tasks 9 to 14 and the rules of their
 pending entries are as written; the reopen chore is over; the
 demand-vs-evaluation experiment (#38, #39) is open until the 24th.
+
+## A third party publishes Ergonia receipts outside Ergonia; the house is beaten on every surface (2026-09-13)
+
+### Pivot criterion: met as published, nothing inferred
+
+The 2026-09-07 pivot named its success criterion: an external party
+publishes a result outside Ergonia. On 2026-09-13 the founder asked
+for a read-only look at the repository
+`forged-lucidity/forgedlucidity-site`. What it holds, quoted, with the
+URLs in the tracker (`ergonia-admin/data/manual.json`, `pivot_criterion`):
+
+- `public/receipts/README.md`: "ergonia/ - submissions to tasks on
+  https://ergonia.works (evals guild). Verify against the task's
+  published condition, not against our note." The README names its
+  author as "Eous, the AI desk of the Forged Lucidity Research
+  Institute".
+- `public/receipts/ergonia/`: the two artifacts submitted on tasks 2
+  and 4 by the member `eous` (submissions 36 and 37, accepted by the
+  steward on 2026-09-13, comments #46 and #47), and
+  `check_condition.py`, a CC0 checker for those two conditions,
+  offered on the chain in comments #44 and #45 with its own PASS
+  results for submissions 19, 36 and 37.
+- `public/receipts/agent-venues/census.json`: an "Agent Venue Census"
+  with an entry for Ergonia, verbatim: `"load_bearing_sentence":"Work
+  isn't done because an agent says so. It's done when anyone can
+  verify it."`, `"presence_2026_09_12":"13 members, 7 external (GET
+  /api/stats)"`, `"eous_status":"joined 2026-09-13T00:45Z; submissions
+  #36 (task 2) and #37 (task 4) pending"`,
+  `"verify":"https://ergonia.works/api/members/eous/record"`.
+
+That is an Ergonia result, readable, published outside Ergonia by a
+third party, with a link to the chain as its verification. Logged as
+such. No contact, no inference about who operates the handle, no reply
+about the checker beyond the steward's own (adopting third-party
+verification code is the human's decision; comments #46 and #47).
+
+### The house is beaten, and no surface may quote a stale number
+
+The page "Give this to your agent" (blog, 2026-09-05) quoted the
+house's 29 leading zero bits as the record; `tessera` has held 31
+since 2026-09-09 (comment #22). Fixed and deployed: the page and the
+tracker (`messages_cite_bits`) no longer carry a number; they point at
+`provisional_best_score` on `/api/arena` for task 13, say the house
+entry is beaten, and describe the inline, on-world and withdraw routes.
+Rule from now on: no message or page quotes a fixed score; the live
+figure is on `/api/arena`, the measurements in the founder's comments.
+
+### The steward's own check was flagging other people's verdicts
+
+Issues #6 (2026-09-10) and #8 (2026-09-11) on ergonia-steward: the
+verify job compared every verdict chained that day against the
+steward report's "Verdicts" section. Since the 10th, most verdicts are
+rendered by the executable verifiers (actor field on the event) or by
+the human through founder-comment; the steward renders none of those
+and correctly does not list them as its own. False positives of the
+check, not of the steward. Fixed in `verify.mjs`: a verifier verdict is
+accounted for by its actor field, and a new report section "Verdicts
+rendered by others" (DAILY-RUN template) accounts for the human's; an
+omitted verifier verdict is not a failure, an omitted human verdict
+is. Re-run with the fix: the 11th passes; the 10th still lists 17 and
+18 (human verdicts before the section existed) and its report is not
+rewritten. Both issues closed with this explanation.
+
+### Tracker refreshed
+
+Outreach T1 done per the founder (Neubig, Avila, the third target;
+task 22 as the linked eval; send dates not recorded by the assistant);
+Waybill, MAG and the ambassador marked paused since 2026-09-07 (their
+schedules were disabled that day, `workflow_dispatch` kept); the
+today_action no longer says "to send".
+
+### Pending, for the founder
+
+- awesome-mcp-servers PR #12999: punkpeye's last comment (2026-09-07
+  14:27 UTC) reports merge conflicts as a blocker; our two replies of
+  that morning predate it; the branch `add-ergonia` is CONFLICTING.
+  Proposed: rebase the branch on upstream main, then one reply. Not
+  done without the founder's go.
+- "The house lost": no earlier version exists in any repository; a
+  first draft from the receipts is in `ergonia-blog/drafts/`, outside
+  the build, for the founder to read after the steward's run of the
+  14th.
