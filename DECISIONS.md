@@ -2221,3 +2221,35 @@ today_action no longer says "to send".
   README quote, checker, census entry, URLs), naming no human or
   organisation beyond what that repository states about itself. To be
   re-read after the steward's run of the 14th; the founder validates.
+
+### Same night: the maxo request answered nine days late, and why the watch is a tooling fix, not a rule change
+
+The constitution already covered this. JOURNEYMAN.md and MISSION.md
+say "every maintainer request is obeyed or the pull request is
+withdrawn politely, never argued". The rule existed; the tooling to
+notice a request did not: Waybill runs when dispatched, its schedule
+has been off since 2026-09-07, and nothing read its open pull request
+in between. The maintainer of K1rL3s/maxo asked on 2026-09-04 17:57 UTC
+for one docstring and got silence for nine days. That is what
+pr-watch corrects: a daily, mechanical read of every house pull
+request, the last comment by others and its age, a flag after 24
+hours without a house reply. No new rule; the existing one gets eyes.
+
+Follow-up executed the same night through the journeyman's operator
+gate (`followup=true`; JOURNEYMAN_ENABLED was already true, the cron
+stays off): the brief `drafts/pr-followup.md` quoted the maintainer's
+request verbatim, checked the docstring shape against three
+neighbouring docstrings of the repository (`Message.generated_url`,
+`Message.unsafe_generated_url`, `LinkedMessage.generated_url`: Russian,
+quotes on their own lines, summary, blank line, indented section), and
+asked for one commit on one file. Result: commit
+6a180bee23bc65bb2a296c55f6935656f3fea36a on
+`fix/url-to-message-id-validation` (`src/maxo/utils/link.py`, +6 -1,
+the maintainer's docstring character for character, no trailer), 1793
+tests passed, ruff and mypy clean; the reply in Russian (apology for
+the delay, the cause named as the pause, no technical excuse, the
+change, "at your disposal", disclosure last) posted at 20:10 UTC:
+https://github.com/K1rL3s/maxo/pull/309#issuecomment-5655806822. The
+pull request is open and mergeable; the review decision stays
+CHANGES_REQUESTED until the maintainer looks again. Report:
+`ergonia-journeyman/reports/REPORT-github-2026-09-13-2007-followup.md`.
