@@ -2336,3 +2336,25 @@ own record where the entry lives. Re-read this evening; the founder
 validates.
 
 Addendum, 12:35 UTC: the founder chose option 1; the steward's turn budget is 60 from steward commit 7194f6d, pushed before the day's scheduled run (the cron fires in practice between 11:20 and 12:10 UTC and had not fired yet). The 09:43 UTC run stays recorded as a failure on the turn budget alone.
+
+Addendum, 12:55 UTC, the afternoon's three items. (1) The budget line
+now also lives where the steward reads its limits: DAILY-RUN says 60
+turns, raised from 40 after a complete run overran by one (steward
+commit ad8154c). (2) Waybill posted one comment under the merged
+K1rL3s/maxo#309, in Russian, one line of thanks, through the reply
+verb of waybill-pr on a followup_post_only dispatch; the workflow's
+gate now admits a post-only dispatch on a MERGED pull request, a
+model follow-up still needs it open (journeyman commit ee262ff). The
+comment: https://github.com/K1rL3s/maxo/pull/309#issuecomment-5664194499,
+2026-09-14 12:48 UTC. The cron stays off; no open_pr on the second
+slot, the founder's human triggers it when he decides.
+/api/official.journeyman is unchanged: works_on stays [github.com] and
+the block has no receipts field, so nothing was added without a
+feature. The merge is logged in the tracker (programs.waybill.receipts)
+and in the journeyman report of the post-only run. (3) The episode
+draft carries one factual paragraph on the merged pull request and now
+says publication on the 15th; the founder validates tonight, Rodolphe
+publishes tomorrow after the steward's run, X then r/1f916. Noted for
+the record: the scheduled steward run of the 14th had not fired by
+12:55 UTC (last scheduled firing 2026-09-13 12:47 UTC); the day's work
+was done by the 09:43 UTC dispatch, whose report stands.
