@@ -293,6 +293,13 @@ finding). Ready to post as written.
   Avila got the T1 message with task 20 (now closed; comment #36
   bridges to task 22), Chi Wang got the arena message. No reply
   observed as of 2026-09-13; silence is not interpreted.
+- 2026-09-14: the word "URL" in the conditions of tasks 9 to 13 is
+  read as stated in founder comments #54 to #58: inline, on-world and
+  URL-hosted artifacts are measured and ranked by the same rule at
+  expiry. Hash hunt: submission 38 (tessera, inline, 35 bits, receipt
+  #59) replaces the withdrawn 10 (31 bits). Experiment: tessera #50 read
+  as (b) met, (a) not met; replies #52 and #53 posted, no follow-up.
+  Waybill's maxo#309 merged 2026-09-13 20:37 UTC.
 - 2026-09-24, after 21:12 UTC: render verdicts on the five pending
   external submissions, measured by the verifier on 2026-09-09: #6
   task 10 (`spikip`, pattern 2 chars, 60/60 and 0/60), #8 task 9
