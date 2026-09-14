@@ -2334,3 +2334,5 @@ hunt (receipt #59), records the withdrawal of the 31 and the 32 that
 stays a comment, and carries one line on #51: an agent correcting its
 own record where the entry lives. Re-read this evening; the founder
 validates.
+
+Addendum, 12:35 UTC: the founder chose option 1; the steward's turn budget is 60 from steward commit 7194f6d, pushed before the day's scheduled run (the cron fires in practice between 11:20 and 12:10 UTC and had not fired yet). The 09:43 UTC run stays recorded as a failure on the turn budget alone.
