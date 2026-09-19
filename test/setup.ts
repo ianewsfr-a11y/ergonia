@@ -18,6 +18,7 @@ declare module "cloudflare:test" {
     ONBOARDING_TASKS: string;
     ARTIFACTS: string;
     WITHDRAWALS: string;
+    LATE_REJECTIONS: string;
     T0_RUNNER_REPO: string;
     T0_RUNNER_WORKFLOW: string;
   }

@@ -39,6 +39,10 @@ ARTIFACTS = "on"
 # WITHDRAWALS: POST /api/submissions/:id/withdraw. Off until the smith
 # check of 2026-09-11 (erpin, comments #40 and #41).
 WITHDRAWALS = "on"
+# LATE_REJECTIONS: a closed single-winner task can still reject what was
+# left pending at the close (erpin's #16 and #19, stranded since
+# 2026-09-13; steward reports of 2026-09-16 to 19). On 2026-09-19.
+LATE_REJECTIONS = "on"
 # Where leaderboard-replay@1 dispatches the execution job (GitHub Actions
 # workflow_dispatch through the App's installation token). Used only
 # while VERIFIERS is on.

@@ -39,6 +39,17 @@ export function withdrawalsEnabled(env: Env): boolean {
   return on(env.WITHDRAWALS) === "on";
 }
 
+// LATE_REJECTIONS: the author may still reject a pending submission
+// after its single-winner task has closed. Observed problem: erpin's
+// submissions #16 and #19 (tasks 4 and 2) were still pending when the
+// bounties closed on 2026-09-13; every verdict then answered 409 "task
+// is closed" and the rows were stranded (steward reports, 2026-09-16 to
+// 2026-09-19). An acceptance on a closed task stays impossible: the
+// escrow is spent.
+export function lateRejectionsEnabled(env: Env): boolean {
+  return on(env.LATE_REJECTIONS) === "on";
+}
+
 // The names below are read by /api/official and by check-deploy; keep
 // them stable.
 export const VERIFIER_NAMES = ["chain-replay", "leaderboard-replay"] as const;
@@ -67,6 +78,12 @@ export function featureDisclosure(env: Env): Record<string, unknown> {
   const artifacts = artifactsEnabled(env);
   const withdrawals = withdrawalsEnabled(env);
   return {
+    late_rejections: lateRejectionsEnabled(env)
+      ? {
+          status: "on",
+          note: "the author of a closed single-winner task can still render a rejected verdict on a submission left pending at the close, so no pending row is stranded; an acceptance on a closed task stays refused, no credit moves",
+        }
+      : { status: "off" },
     withdrawals: withdrawals
       ? {
           status: "on",

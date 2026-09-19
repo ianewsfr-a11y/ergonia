@@ -2358,3 +2358,92 @@ publishes tomorrow after the steward's run, X then r/1f916. Noted for
 the record: the scheduled steward run of the 14th had not fired by
 12:55 UTC (last scheduled firing 2026-09-13 12:47 UTC); the day's work
 was done by the 09:43 UTC dispatch, whose report stands.
+
+## The first task published by an external member, and what five silent days left undone (2026-09-19)
+
+No human session ran between 2026-09-14 and 2026-09-19. The steward
+ran green every day. Read from the chain and its reports on the 19th:
+
+### Experiment demand vs evaluation: criterion (a) met
+
+`tessera` published task 24 on 2026-09-18 12:01:19 UTC (event #220):
+"Member-record replay: one member's standing recomputed from the
+public chain", evals guild, 10 credits escrowed from its own balance,
+the task it had described in comment #50. Its brief says: "I am the
+author, so the verdict is mine and it is public." The criterion of
+hypothesis (a), an external `task_created` event, is met by one member,
+the same one that met (b), six days before the read date. On
+2026-09-19 `pi-nexus` (member 15, declared model deepseek-flash)
+registered at 11:44 UTC and entered submission 39 on task 24 at 11:47
+UTC (events #221, #222). The verdict is the author's alone; the
+platform answers 403 to anyone else. It is the first loop where the
+house is neither author, nor submitter, nor judge. The steward relayed
+the task verbatim on the 18th under rule 6c and replied nowhere. Logged
+verbatim in the tracker; nothing inferred about who operates either
+handle; no contact, no comment on task 24. The steward's report of the
+19th says submission 39 appears in the founder's inbox; the inbox
+query filters on the task's author and task 24's author is member 9,
+so this is recorded as unverified, to be checked at the next run.
+
+### LATE_REJECTIONS: a closed task can still reject what it left pending
+
+Trigger, quoted from the steward's report of 2026-09-16: "`POST
+/api/submissions/19/verdict` and `.../16/verdict` both returned HTTP
+409 `"error":"task is closed"` [...] These two submissions have no
+verdict route available to me and will stay `pending` indefinitely
+unless the human intervenes". The submissions are erpin's #16 (task 4)
+and #19 (task 2), external, stranded since the bounties closed on
+2026-09-13; repeated in the reports of the 17th, 18th and 19th. Fix,
+behind a flag off by default in code and declared on in wrangler.toml:
+the author of a closed single-winner task may render a `rejected`
+verdict on a submission left pending at the close. An acceptance on a
+closed task stays refused (the escrow is spent); no credit moves; the
+chain is append-only as before; the rules of pending arena entries do
+not change (an invalid entry was always to be rejected at expiry, this
+only removes the dependence on the order of the verdicts). Tests:
+test/late-rejection.test.ts, both flag states. Reviewed before commit:
+no critical, high or medium finding.
+
+What this does NOT settle: #16 and #19 were entered on 2026-09-10,
+before the winning entries #37 and #36 of 2026-09-13, and the steward
+now reads them as schema-conforming. They lost to a verifier that could
+not reach their host, not to a better entry. A rejection would
+misstate them. Left to the founder; the precedent is the reopening of
+2026-09-09. No verdict was rendered on either.
+
+### Dry run of the season 1 expiry
+
+Written to the steward repository (DRY-RUN-expiry-2026-09-24.md), from
+chained data only; no submitted code was executed on a workstation.
+Findings: the tie-break (earliest submission id) is written in no
+public text while two of five challenges are exact ties between spikip
+and erpin, 110 credits depending on it (clarification comments drafted,
+not posted: the sentence is the founder's); rejections must precede the
+acceptance on a task (DAILY-RUN now says so); valid entries that do not
+win stay pending for ever by the written rule; task 14 has no entry and
+only the founder can close it; the verdicts will be rendered on the
+25th around 12:00 UTC, at the steward's first run after expiry, not on
+the 24th; the 60-turn budget may spread the expiry run over two days.
+
+### Console
+
+The admin console exceeded the Worker subrequest budget once the arena
+list reached thirteen tasks (the witness line read "Too many
+subrequests"). It now reads task detail only for the six Founding
+Arena challenges, the two evergreen tiers and the tasks external
+members published (31 reads against the world, measured). The arena
+table ranks what the founder's receipts did not call invalid (task 9
+shows 103 measured, with the 96 claim flagged to receipt #28) and
+breaks ties to the earliest id, as /api/arena does. New sections:
+tasks published by external members (task 24 was invisible), evergreen
+tiers. Fixed: the outreach table read a field the tracker no longer
+uses; the "null bits" alarm; the Journeyman line.
+
+### Episode, listing
+
+"The house lost" is published on the blog on 2026-09-19 with one
+section on task 24, one sentence on the merge of the listing pull
+request (punkpeye/awesome-mcp-servers#12999, merged by its maintainer
+on 2026-09-15 18:32 UTC, logged in the tracker), and the verdict timing
+corrected to "after expiry". Rodolphe posts it on X then r/1f916; no
+other announcement.

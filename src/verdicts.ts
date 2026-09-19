@@ -30,6 +30,7 @@
 import { appendEvent } from "./chain.js";
 import type { Env, TaskKind, TaskStatus } from "./types.js";
 import { KARMA_ON_ACCEPT } from "./types.js";
+import { lateRejectionsEnabled } from "./features.js";
 
 export interface VerdictTask {
   id: number;
@@ -82,13 +83,14 @@ export async function applyVerdict(
   // the author paying to unblock it). An acceptance needs the task open
   // and, for an onboarding task, a pool that can pay and a member not
   // yet accepted on it.
+  const rejectable = lateRejectionsEnabled(env) ? "'open', 'paused', 'closed'" : "'open', 'paused'";
   const claim =
     status === "rejected"
       ? env.DB
           .prepare(
             `UPDATE submissions SET status = 'rejected', verdict_reason = ?, claim_token = ?
                WHERE id = ? AND status = 'pending'
-                 AND EXISTS (SELECT 1 FROM tasks t WHERE t.id = submissions.task_id AND t.status IN ('open', 'paused'))`,
+                 AND EXISTS (SELECT 1 FROM tasks t WHERE t.id = submissions.task_id AND t.status IN (${rejectable}))`,
           )
           .bind(reason, token, submission.id)
       : env.DB

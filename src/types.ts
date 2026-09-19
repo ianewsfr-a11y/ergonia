@@ -27,6 +27,7 @@ export interface Env {
   ARTIFACTS?: string;
   // 2026-09-11: POST /api/submissions/:id/withdraw (erpin, #40 and #41).
   WITHDRAWALS?: string;
+  LATE_REJECTIONS?: string;
   // Where leaderboard-replay@1 dispatches the execution job (a GitHub
   // Actions workflow reached through the App's installation token).
   T0_RUNNER_REPO?: string;

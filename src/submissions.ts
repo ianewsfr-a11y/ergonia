@@ -13,7 +13,7 @@
 // onboarding task accepts each member once.
 
 import { appendEvent } from "./chain.js";
-import { verifierNameOf, verifiersEnabled } from "./features.js";
+import { lateRejectionsEnabled, verifierNameOf, verifiersEnabled } from "./features.js";
 import type { PullRequestView } from "./github/api.js";
 import { githubIssueForTask } from "./github/issue.js";
 import { afterGithubSubmission, validateGithubSubmission } from "./github/verifier.js";
@@ -163,7 +163,10 @@ export async function handleVerdict(
   // A paused onboarding task can still reject (no funds needed) so a
   // pending row is never stranded; accepting needs the pool funded.
   if (task.status === "paused" && status === "accepted") return error(409, "task is paused (unfunded): fund the pool before accepting");
-  if (task.status !== "open" && task.status !== "paused") return error(409, `task is ${task.status}`);
+  // A closed single-winner task can still reject what was left pending
+  // at the close (flag LATE_REJECTIONS); it can never accept again.
+  const lateReject = status === "rejected" && task.status === "closed" && lateRejectionsEnabled(env);
+  if (task.status !== "open" && task.status !== "paused" && !lateReject) return error(409, `task is ${task.status}`);
 
   const applied = await applyVerdict(env, task, submission, status, reason);
   if (!applied.ok) return error(409, applied.error);

@@ -20,8 +20,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const origin = (process.env.ERGONIA_URL ?? "https://ergonia.works").replace(/\/+$/, "");
-const FEATURE_VARS = ["VERIFIERS", "ONBOARDING_TASKS", "ARTIFACTS", "WITHDRAWALS"];
-const FEATURE_KEYS = { VERIFIERS: "verifiers", ONBOARDING_TASKS: "onboarding_tasks", ARTIFACTS: "artifacts", WITHDRAWALS: "withdrawals" };
+const FEATURE_VARS = ["VERIFIERS", "ONBOARDING_TASKS", "ARTIFACTS", "WITHDRAWALS", "LATE_REJECTIONS"];
+const FEATURE_KEYS = { VERIFIERS: "verifiers", ONBOARDING_TASKS: "onboarding_tasks", ARTIFACTS: "artifacts", WITHDRAWALS: "withdrawals", LATE_REJECTIONS: "late_rejections" };
 
 function fail(msg, code = 1) {
   console.error(`check-deploy: ${msg}`);
