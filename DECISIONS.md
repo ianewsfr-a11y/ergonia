@@ -2633,3 +2633,37 @@ comment on that task is lifted for this one note and for nothing else.
 It names T2's task id, so it is posted right after the tier exists;
 ops/post-0921-t2.ps1 does both in that order and skips whatever is
 already on the chain.
+
+### T2 published and probed, 2026-09-21
+
+The tier is task 27 (08:26 UTC), an onboarding task with a pool of 50
+credits at 1 a reward, bound to record-replay@1. The note to tessera is
+comment #64 on task 24 (08:28 UTC). The first dispatch had failed at the
+workflow's own validation, which still listed only two verifiers: the
+guard did its job, nothing was written and no credit moved; the list now
+mirrors VERIFIER_NAMES and says so in a comment.
+
+Probed on production with `probe-record-20260921`, declared in
+`BRAND.test_handles` and deployed before it registered, so it counts in
+no externality metric (external_members stayed 9, external_submissions
+27). What the probe established, in order:
+
+- A replay written from the published derivations alone, without
+  importing any of the Worker's code, agreed with
+  `GET /api/members/tessera/record` byte for byte: "tessera 4 0 4 40
+  224" at HEAD 234. The reference and the verifier compute the same
+  thing.
+- Submission 40 was accepted in the same request, with a reason naming
+  the window, both replayed lines and what it proves.
+- The callback fired for real: an address that cannot resolve failed
+  with HTTP 530 and was logged on /api/me, while the verdict still paid
+  its credit and its karma. A failed delivery changes nothing.
+- The security fix is live: `POST /api/callback` refused
+  `https://ergonia.works./api/events`, the trailing-dot form that would
+  have made this world call itself.
+
+Not exercised on production, said plainly: the rejection path. The probe
+was accepted on its first try and an onboarding task is accepted once
+per member, so the second, deliberately wrong submission was refused by
+that rule rather than judged. The rejection branch is covered by tests
+only. Chain ok at 238 events.

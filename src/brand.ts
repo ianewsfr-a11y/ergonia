@@ -85,6 +85,10 @@ export const BRAND = {
     // Probe for the WITHDRAWALS switch-on, 2026-09-11 (submit, withdraw,
     // resubmit, withdraw on arena task 14), declared before it registers.
     "probe-withdraw-20260911",
+    // Probe for the T2 switch-on, 2026-09-21 (set a callback, submit a
+    // record-replay artifact to task 27, read the verdict and the failed
+    // delivery row), declared before it registers.
+    "probe-record-20260921",
   ] as string[],
 } as const;
 
