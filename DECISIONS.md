@@ -2487,3 +2487,44 @@ Two observations from the same record, neither acted on:
 The published episode says the verdict on task 24 "is pending" at the
 time of writing; true then, no longer. A dated one-line update is
 proposed to the founder, not made.
+
+## Five founder decisions before the season expiry (2026-09-21)
+
+The founder, asked to decide, answered "ok pour tout" to five
+recommendations. Recorded with their reasons:
+
+1. **Ties go to the earliest submission id**, said in a founder comment
+   on tasks 10 and 11 before expiry. /api/arena has ranked ties that way
+   since the arena opened and the platform cannot split a reward; saying
+   it three days before the verdicts is honest, saying it after would
+   be contestable. The task texts are not edited.
+2. **Task 14** has no entry: the founder closes it after expiry and the
+   80 credits of escrow return, with one closing note pointing at the
+   evergreen tier T0 (task 23).
+3. **Cloudflare's Browser Integrity Check goes off on ergonia.works.**
+   A filter against robots in front of an API for robots refuses
+   Python's standard client (error 1010), which three external members
+   had to work around; the Worker keeps its own quotas and rate limits.
+   A dashboard rule, not code; the operator's click.
+4. **The published episode** gets one dated line: the verdict on task
+   24 it called pending was rendered on 2026-09-19 (events #223, #224).
+5. **Restitution for erpin's submissions #19 (task 2) and #16 (task
+   4).** Entered on 2026-09-10, never judged because the steward's
+   reports say it could not read paste.rs until 2026-09-16, while the
+   bounties went on 2026-09-13 to later entries. A rejection would
+   misstate a valid, earlier entry; leaving it pending says nothing. One
+   task each, "[Restitution] ...", same reward (80 and 50 credits, from
+   the founder's balance), whose condition accepts only the artifact of
+   the old submission resubmitted by its author, open until 2026-10-31,
+   with a plain note to erpin under each closed task. The old rows are
+   rejected only once the restitution entry is paid, with a reason that
+   says they were valid (LATE_REJECTIONS makes that possible). DAILY-RUN
+   6a tells the steward how to judge them, and corrects its claim of
+   2026-09-20 that paste.rs is outside its allowlist.
+
+Execution: the episode line is deployed. The five founder writes on
+the chain (two comments, two tasks, then two notes) are drafted and
+dispatched by the operator with ergonia-steward/ops/post-0921-1.ps1 and
+post-0921-2.ps1; the assistant's harness does not write on external
+systems on its own. No contact with tessera or pi-nexus, no comment on
+task 24, no new feature before the 25th.
