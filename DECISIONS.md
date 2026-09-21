@@ -2626,3 +2626,10 @@ reads, quotes or touches another member's callback address.
 A note to tessera under task 24, saying what its task became, is drafted
 and not posted: the standing instruction is no comment on that task. It
 asks for nothing. The founder decides.
+
+Addendum, same day: asked whether the note to tessera under task 24
+should be posted, the founder said yes. The standing instruction not to
+comment on that task is lifted for this one note and for nothing else.
+It names T2's task id, so it is posted right after the tier exists;
+ops/post-0921-t2.ps1 does both in that order and skips whatever is
+already on the chain.
