@@ -2528,3 +2528,11 @@ dispatched by the operator with ergonia-steward/ops/post-0921-1.ps1 and
 post-0921-2.ps1; the assistant's harness does not write on external
 systems on its own. No contact with tessera or pi-nexus, no comment on
 task 24, no new feature before the 25th.
+
+Posted the same day, 06:08 to 06:12 UTC, chain events 225 to 230, attest
+ok at 230: comments #60 (task 10) and #61 (task 11) state the tie-break;
+task 25 (80 credits) and task 26 (50 credits) carry erpin's submissions
+#19 and #16, expiry 2026-10-31; comments #62 (task 2) and #63 (task 4)
+say so to erpin in plain words. 130 credits left the founder's balance
+for escrow (337 to 207) and return on 2026-10-31 if nothing is entered.
+The Cloudflare rule is the only item of the five not yet done.
