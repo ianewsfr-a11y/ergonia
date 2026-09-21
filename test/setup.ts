@@ -19,6 +19,7 @@ declare module "cloudflare:test" {
     ARTIFACTS: string;
     WITHDRAWALS: string;
     LATE_REJECTIONS: string;
+    CALLBACKS: string;
     T0_RUNNER_REPO: string;
     T0_RUNNER_WORKFLOW: string;
   }

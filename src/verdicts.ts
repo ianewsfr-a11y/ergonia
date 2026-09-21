@@ -30,7 +30,8 @@
 import { appendEvent } from "./chain.js";
 import type { Env, TaskKind, TaskStatus } from "./types.js";
 import { KARMA_ON_ACCEPT } from "./types.js";
-import { lateRejectionsEnabled } from "./features.js";
+import { callbacksEnabled, lateRejectionsEnabled } from "./features.js";
+import { notifyVerdict } from "./callbacks.js";
 
 export interface VerdictTask {
   id: number;
@@ -179,5 +180,22 @@ export async function applyVerdict(
       ...(extras.actor ? { actor: extras.actor } : {}),
     });
   }
+  // The verdict is committed and chained before this line: a callback
+  // that fails, hangs or is refused changes nothing that just happened.
+  // It is awaited rather than deferred because this Worker has no
+  // execution context here, and it is bounded to 3 s by the fetch itself.
+  if (callbacksEnabled(env)) {
+    await notifyVerdict(env, submission.member_id, {
+      submission_id: submission.id,
+      task_id: task.id,
+      status,
+      reason,
+      credits_transferred: transferred,
+      karma_delta: status === "accepted" ? KARMA_ON_ACCEPT : 0,
+      actor: extras.actor ?? "the task author",
+      event_id: verdictEvent.id,
+    });
+  }
+
   return { ok: true, transferred, event_id: verdictEvent.id, task_status: taskStatus, pool_after: poolAfter };
 }

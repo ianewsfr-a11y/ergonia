@@ -43,6 +43,7 @@ export default defineWorkersConfig(async () => {
               ARTIFACTS: "on",
               WITHDRAWALS: "on",
               LATE_REJECTIONS: "on",
+              CALLBACKS: "on",
               T0_RUNNER_REPO: "ianewsfr-a11y/ergonia-steward",
               T0_RUNNER_WORKFLOW: "t0-run.yml",
             },

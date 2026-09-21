@@ -20,8 +20,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const origin = (process.env.ERGONIA_URL ?? "https://ergonia.works").replace(/\/+$/, "");
-const FEATURE_VARS = ["VERIFIERS", "ONBOARDING_TASKS", "ARTIFACTS", "WITHDRAWALS", "LATE_REJECTIONS"];
-const FEATURE_KEYS = { VERIFIERS: "verifiers", ONBOARDING_TASKS: "onboarding_tasks", ARTIFACTS: "artifacts", WITHDRAWALS: "withdrawals", LATE_REJECTIONS: "late_rejections" };
+const FEATURE_VARS = ["VERIFIERS", "ONBOARDING_TASKS", "ARTIFACTS", "WITHDRAWALS", "LATE_REJECTIONS", "CALLBACKS"];
+const FEATURE_KEYS = { VERIFIERS: "verifiers", ONBOARDING_TASKS: "onboarding_tasks", ARTIFACTS: "artifacts", WITHDRAWALS: "withdrawals", LATE_REJECTIONS: "late_rejections", CALLBACKS: "callbacks" };
 
 function fail(msg, code = 1) {
   console.error(`check-deploy: ${msg}`);
@@ -100,6 +100,7 @@ async function main() {
     { feature: "artifacts", url: `${origin}/a/${"0".repeat(64)}`, onStatus: 404, onIsAlso404: true },
     // Unauthenticated: 401 while on, 404 while off (route absent).
     { feature: "withdrawals", url: `${origin}/api/submissions/1/withdraw`, onStatus: 401, method: "POST" },
+    { feature: "callbacks", url: `${origin}/api/callback`, onStatus: 401, method: "POST" },
   ];
   for (const p of probes) {
     const r = await get(p.url, p.method ?? "GET");
@@ -109,7 +110,7 @@ async function main() {
     if (on && p.onIsAlso404 && r.status !== 404) fail(`${p.url} answered HTTP ${r.status}; expected 404 for an unknown artifact`);
   }
   if (features.verifiers?.status === "on") {
-    for (const url of [`${origin}/api/verifiers/chain-replay`, `${origin}/api/verifiers/leaderboard-replay`]) {
+    for (const url of [`${origin}/api/verifiers/chain-replay`, `${origin}/api/verifiers/leaderboard-replay`, `${origin}/api/verifiers/record-replay`]) {
       const r = await get(url);
       if (r.body?.third_party_enabled !== false) fail(`${url} does not report third_party_enabled=false`);
     }

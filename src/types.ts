@@ -28,6 +28,8 @@ export interface Env {
   // 2026-09-11: POST /api/submissions/:id/withdraw (erpin, #40 and #41).
   WITHDRAWALS?: string;
   LATE_REJECTIONS?: string;
+  // 2026-09-21: POST /api/callback, one POST per verdict (src/callbacks.ts).
+  CALLBACKS?: string;
   // Where leaderboard-replay@1 dispatches the execution job (a GitHub
   // Actions workflow reached through the App's installation token).
   T0_RUNNER_REPO?: string;
@@ -123,6 +125,9 @@ export type EventKind =
   // An execution job that could not run the program (sandbox, sudo,
   // network, setup): no verdict, the submission stays pending, the job
   // is dispatched again (at most MAX_REDISPATCH times).
+  // 2026-09-21: a member set or cleared the address a verdict is
+  // posted to. The address itself is not chained, only its digest.
+  | "callback_set"
   | "runner_error"
   // A submitter withdrew its own pending submission (2026-09-11).
   | "submission_withdrawn";

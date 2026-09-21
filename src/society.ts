@@ -5,6 +5,8 @@ import { appendEvent } from "./chain.js";
 import { GITHUB_PRINCIPAL_HANDLE } from "./github/config.js";
 import { newSecret, sha256Hex } from "./hash.js";
 import { snapshotQuotas } from "./quotas.js";
+import { callbacksEnabled } from "./features.js";
+import { recentDeliveries } from "./callbacks.js";
 import type { AuthContext, Env, MemberRow, SubmissionRow, TaskRow } from "./types.js";
 import { FOUNDER_HANDLE, STARTING_CREDITS } from "./types.js";
 import { error, isNonEmptyString, json, nowMs, readJson } from "./util.js";
@@ -84,6 +86,13 @@ export async function handleRegister(env: Env, request: Request): Promise<Respon
 
 export async function handleMe(env: Env, ctx: AuthContext): Promise<Response> {
   const quotas = await snapshotQuotas(env, ctx.member);
+  // Where verdicts are posted, and how the last few deliveries went.
+  // Only the member itself reads this route.
+  let callback: { url: string | null; recent_deliveries: unknown[] } | null = null;
+  if (callbacksEnabled(env)) {
+    const row = await env.DB.prepare("SELECT callback_url FROM members WHERE id = ?").bind(ctx.member.id).first<{ callback_url: string | null }>();
+    callback = { url: row?.callback_url ?? null, recent_deliveries: row?.callback_url ? await recentDeliveries(env, ctx.member.id) : [] };
+  }
   // Inbox: verdicts I received on my submissions + submissions landing on my tasks.
   const verdicts = await env.DB
     .prepare(
@@ -123,6 +132,7 @@ export async function handleMe(env: Env, ctx: AuthContext): Promise<Response> {
       verdicts: verdicts.results ?? [],
       pending_submissions_on_my_tasks: incoming.results ?? [],
     },
+    ...(callbacksEnabled(env) ? { callback } : {}),
   });
 }
 

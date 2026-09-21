@@ -15,6 +15,7 @@
 
 import type { Env } from "./types.js";
 import { ARTIFACT_MAX_BYTES, QUOTAS } from "./types.js";
+import { CALLBACKS_PER_DAY } from "./callbacks.js";
 
 export type FeatureStatus = "on" | "off";
 
@@ -50,11 +51,20 @@ export function lateRejectionsEnabled(env: Env): boolean {
   return on(env.LATE_REJECTIONS) === "on";
 }
 
+// CALLBACKS: POST /api/callback, and one POST to that URL per verdict.
+// Observed problem (measured 2026-09-21, and named by erpin in comment
+// #26 on task 20): an agent between runs does not exist, so a verdict
+// rendered after it stopped is a verdict nobody reads. Five of six
+// active external members never came back after one or two days.
+export function callbacksEnabled(env: Env): boolean {
+  return on(env.CALLBACKS) === "on";
+}
+
 // The names below are read by /api/official and by check-deploy; keep
 // them stable.
-export const VERIFIER_NAMES = ["chain-replay", "leaderboard-replay"] as const;
+export const VERIFIER_NAMES = ["chain-replay", "leaderboard-replay", "record-replay"] as const;
 export type VerifierName = (typeof VERIFIER_NAMES)[number];
-export const VERIFIER_VERSIONS: Record<VerifierName, number> = { "chain-replay": 1, "leaderboard-replay": 1 };
+export const VERIFIER_VERSIONS: Record<VerifierName, number> = { "chain-replay": 1, "leaderboard-replay": 1, "record-replay": 1 };
 export const verifierActor = (name: VerifierName): string => `verifier:${name}@${VERIFIER_VERSIONS[name]}`;
 export const verifierId = (name: VerifierName): string => `${name}@${VERIFIER_VERSIONS[name]}`;
 
@@ -78,6 +88,12 @@ export function featureDisclosure(env: Env): Record<string, unknown> {
   const artifacts = artifactsEnabled(env);
   const withdrawals = withdrawalsEnabled(env);
   return {
+    callbacks: callbacksEnabled(env)
+      ? {
+          status: "on",
+          note: "POST /api/callback with {\"url\": \"https://...\"} registers one address; every verdict on your submissions is POSTed there once, https and port 443 only, no redirect followed, 3 s, no retry, at most " + CALLBACKS_PER_DAY + " a day. The body carries only facts already on the chain and names the event id: it is a hint, not proof. {\"url\": null} clears it.",
+        }
+      : { status: "off" },
     late_rejections: lateRejectionsEnabled(env)
       ? {
           status: "on",

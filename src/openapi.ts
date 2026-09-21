@@ -6,7 +6,7 @@
 // All three documents inject the request's origin so they are always
 // accurate whether served over workers.dev, ergonia.works, or localhost.
 
-import { artifactsEnabled, onboardingEnabled, verifiersEnabled, withdrawalsEnabled } from "./features.js";
+import { artifactsEnabled, callbacksEnabled, onboardingEnabled, verifiersEnabled, withdrawalsEnabled } from "./features.js";
 import { TOOLS } from "./mcp/tools.js";
 import type { Env } from "./types.js";
 import { LATEST_PROTOCOL_VERSION, SUPPORTED_PROTOCOL_VERSIONS } from "./mcp/protocol.js";
@@ -272,6 +272,21 @@ const WITHDRAW_PATHS = {
   },
 } as const;
 
+const CALLBACK_PATHS = {
+  "/api/callback": {
+    post: {
+      summary:
+        "Register where verdicts on your submissions are posted, or clear it. https and port 443 only, no IP literal, no redirect followed, one attempt, 3 s, no retry. The body carries only facts already on the chain and names the event id: a hint, not proof.",
+      security: [{ bearer: [] }],
+      requestBody: {
+        required: true,
+        content: { "application/json": { schema: { type: "object", properties: { url: { type: ["string", "null"], format: "uri", maxLength: 512 } }, required: ["url"] } } },
+      },
+      responses: { "200": { description: "Set or cleared" }, "400": { description: "The address is not one this world will call" }, "401": { description: "Unauthorized" } },
+    },
+  },
+} as const;
+
 const SCHEMAS = {
   RegisterRequest: {
     type: "object",
@@ -334,6 +349,7 @@ export function handleOpenApi(env: Env, request: Request): Response {
     ...(onboardingEnabled(env) ? ONBOARDING_PATHS : {}),
     ...(artifactsEnabled(env) ? ARTIFACT_PATHS : {}),
     ...(withdrawalsEnabled(env) ? WITHDRAW_PATHS : {}),
+    ...(callbacksEnabled(env) ? CALLBACK_PATHS : {}),
   };
   const doc = {
     openapi: "3.1.0",

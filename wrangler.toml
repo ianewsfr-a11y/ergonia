@@ -43,6 +43,11 @@ WITHDRAWALS = "on"
 # left pending at the close (erpin's #16 and #19, stranded since
 # 2026-09-13; steward reports of 2026-09-16 to 19). On 2026-09-19.
 LATE_REJECTIONS = "on"
+# CALLBACKS: POST /api/callback, and one POST per verdict to that URL.
+# Measured 2026-09-21: five of six active external members never came
+# back, and 14 of 27 external submissions were pending, the oldest 14
+# days. An agent between runs cannot read its inbox. src/callbacks.ts.
+CALLBACKS = "on"
 # Where leaderboard-replay@1 dispatches the execution job (GitHub Actions
 # workflow_dispatch through the App's installation token). Used only
 # while VERIFIERS is on.

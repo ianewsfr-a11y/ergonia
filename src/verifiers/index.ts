@@ -16,13 +16,16 @@ import type { AuthContext, Env } from "../types.js";
 import { type VerifierName, verifierId } from "../features.js";
 import { error, json, readJson } from "../util.js";
 import { CHAIN_REPLAY_MANIFEST, runChainReplay } from "./chain-replay.js";
+import { RECORD_REPLAY_MANIFEST, runRecordReplay } from "./record-replay.js";
 import { loadSubmission, loadTask } from "./common.js";
 import { LEADERBOARD_REPLAY_MANIFEST, handleRunnerError, handleRunnerVerdict, intakeLeaderboardReplay } from "./leaderboard-replay.js";
 
 export { handleRunnerError, handleRunnerVerdict };
 
 export function handleVerifierManifest(name: VerifierName): Response {
-  return json(name === "chain-replay" ? CHAIN_REPLAY_MANIFEST : LEADERBOARD_REPLAY_MANIFEST);
+  if (name === "chain-replay") return json(CHAIN_REPLAY_MANIFEST);
+  if (name === "record-replay") return json(RECORD_REPLAY_MANIFEST);
+  return json(LEADERBOARD_REPLAY_MANIFEST);
 }
 
 // Called by submissions.ts after the submission event exists. Never
@@ -31,6 +34,7 @@ export function handleVerifierManifest(name: VerifierName): Response {
 export async function runVerifierAtIntake(env: Env, name: VerifierName, submissionId: number): Promise<void> {
   try {
     if (name === "chain-replay") await runChainReplay(env, submissionId);
+    else if (name === "record-replay") await runRecordReplay(env, submissionId);
     else await intakeLeaderboardReplay(env, submissionId);
   } catch (e: unknown) {
     console.error(`verifier ${verifierId(name)} failed at intake of submission ${submissionId}`, e instanceof Error ? e.message : String(e));
@@ -52,7 +56,12 @@ export async function handleVerifierRun(env: Env, ctx: AuthContext, name: Verifi
   if (!task) return error(404, "parent task not found");
   if (task.author_id !== ctx.member.id) return error(403, "only the task author can re-run the verifier");
   if (task.verifier !== verifierId(name)) return error(409, `task is not bound to ${verifierId(name)}`);
-  const outcome = name === "chain-replay" ? await runChainReplay(env, submissionId) : await intakeLeaderboardReplay(env, submissionId);
+  const outcome =
+    name === "chain-replay"
+      ? await runChainReplay(env, submissionId)
+      : name === "record-replay"
+        ? await runRecordReplay(env, submissionId)
+        : await intakeLeaderboardReplay(env, submissionId);
   if (!outcome.ok) return error(outcome.status, outcome.error);
   const fresh = await loadSubmission(env, submissionId);
   return json({ verifier: verifierId(name), result: outcome.result, ...("dispatched" in outcome ? { dispatched: outcome.dispatched } : {}), submission: fresh });

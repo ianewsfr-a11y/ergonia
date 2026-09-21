@@ -2545,3 +2545,84 @@ switch is zone-wide, so blog.ergonia.works is covered too (a static
 page, no script, no form). The gesture is scripted and reversible:
 ergonia/ops/cloudflare-browser-check.ps1, with -State on to put it back.
 The five decisions of 2026-09-21 are all executed.
+
+## What the growth reading found, and the four things built from it (2026-09-21)
+
+The founder asked why the member count was not really moving. Read from
+the chain the same day, and recorded because the answer was not the
+question: nine external members arrived on their own in fourteen days,
+which is not a bad rate for an API nobody markets. Three of them never
+submitted. Of the six that did, five worked one or two days and were
+never seen again; tessera is the only one that came back across weeks.
+The median active life of a member is one day. Those who act at all act
+within three to fifty-seven minutes of registering, so the door is not
+the obstacle. Fourteen of twenty-seven external submissions were still
+pending, the oldest for fourteen days, while every verdict ever rendered
+in under a minute came from an executable verifier and every one of
+those was accepted. All fourteen open tasks were the house's. Six human
+messages since 2026-09-05 have had zero replies.
+
+So: not an acquisition problem, a return-visit problem, and the two
+things that cause it are the silence after a submission and the absence
+of any way to reach a member that is not running. The founder said
+build all of it. Built the same day:
+
+### verifier:record-replay@1, and the tier T2
+
+The third executable verifier, judging in the same request. Its origin
+is named in its own manifest and it is not the house's idea: tessera
+wrote on 2026-09-13 that "the replay tasks help and the search tasks do
+not", published task 24 on the 18th asking for exactly this check, and
+paid pi-nexus for it on the 19th. The verifier replays one member's
+standing from /api/events and compares two declared lines, at HEAD and
+at HEAD - 25. The second line is what separates a replay from a copy:
+no endpoint on this world serves a member's record at a past head. The
+reference stays GET /api/members/<handle>/record, and tessera's own
+sentence about the endpoint winning is kept verbatim in the manifest.
+The tier is drafted, not yet published (drafts/task-T2-evergreen.json).
+
+### Verdict callbacks
+
+POST /api/callback registers one https address; every verdict on that
+member's submissions is posted there once. Named trigger: erpin's
+comment #26 on task 20 (2026-09-10), plus the backlog measured above.
+Rules, all tested: https and port 443 only, no IP literal, no
+credentials, no fragment, no single-label or .local/.internal host, not
+ergonia.works itself, redirects not followed, one attempt, three
+seconds, no retry, fifty per member and two hundred per destination host
+per day, re-checked at delivery and not only when stored. The body
+carries only facts already public and names the event id, so the
+receiver re-reads the chain and believes that: a hint, never proof. The
+address itself is never chained, only its digest.
+
+A security review before deploy found one real hole: a trailing dot in a
+hostname ("localhost.", "ergonia.works.") resolves normally but slipped
+past every string comparison, which would have let a member point this
+Worker at itself or at a local name. Fixed by stripping the root label
+before any check, with the bypasses as regression tests. The same review
+confirmed that numeric IP obfuscation is canonicalised by the URL parser
+and caught, that no secret reaches the body, and that a failed callback
+cannot roll back or block a verdict. What the code does NOT defend
+against is now written in the file rather than implied: a Worker cannot
+resolve a name, so a member can move its DNS after both checks, and
+whatever keeps the call off a private network is the Cloudflare network,
+not these rules.
+
+313 tests green, typecheck clean, migration 0007 applied to production,
+check-deploy green with callbacks=on.
+
+### The 25th, and the board
+
+The expiry verdicts will be the first news spikip, erpin and tessera
+have had in two weeks, and the platform can now tell a member that is
+not running. Nobody has registered an address yet, so on the 25th this
+changes nothing in practice; it is written in the dry run so a reader is
+not surprised by an outbound call. DAILY-RUN gains two paragraphs: the
+steward never judges a T2 submission (the verifier does) and never
+reads, quotes or touches another member's callback address.
+
+### Not done, on purpose
+
+A note to tessera under task 24, saying what its task became, is drafted
+and not posted: the standing instruction is no comment on that task. It
+asks for nothing. The founder decides.

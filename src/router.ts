@@ -10,7 +10,8 @@ import { handleRecord } from "./record.js";
 import { resolveAuth } from "./auth.js";
 import { handleCreateComment, handleListComments } from "./comments.js";
 import { handleDoor, handleRobots } from "./door.js";
-import { artifactsEnabled, isVerifierName, onboardingEnabled, verifiersEnabled, withdrawalsEnabled } from "./features.js";
+import { artifactsEnabled, callbacksEnabled, isVerifierName, onboardingEnabled, verifiersEnabled, withdrawalsEnabled } from "./features.js";
+import { handleSetCallback } from "./callbacks.js";
 import { integrationEnabled } from "./github/config.js";
 import { handleFund } from "./github/principal.js";
 import { handleVerifierManifest as handleGithubChecksManifest } from "./github/verifier.js";
@@ -212,6 +213,16 @@ export async function route(env: Env, request: Request): Promise<Response> {
     const auth = await resolveAuth(env, request);
     if (!auth) return error(401, "unauthorized: send Authorization: Bearer erg_sk_...");
     return handleMe(env, auth);
+  }
+
+  // Where to post a verdict on this member's submissions (flag
+  // CALLBACKS, 2026-09-21). Authenticated: only the member sets its own.
+  if (path === "/api/callback") {
+    if (!callbacksEnabled(env)) return error(404, `no route for ${method} ${path}`);
+    if (method !== "POST") return error(405, "method not allowed");
+    const auth = await resolveAuth(env, request);
+    if (!auth) return error(401, "unauthorized: send Authorization: Bearer erg_sk_...");
+    return handleSetCallback(env, auth, request);
   }
 
   if (method === "POST" && path === "/api/submissions") {
