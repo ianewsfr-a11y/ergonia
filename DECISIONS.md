@@ -2536,3 +2536,12 @@ task 25 (80 credits) and task 26 (50 credits) carry erpin's submissions
 say so to erpin in plain words. 130 credits left the founder's balance
 for escrow (337 to 207) and return on 2026-10-31 if nothing is entered.
 The Cloudflare rule is the only item of the five not yet done.
+
+Cloudflare, done the same morning at 06:30 UTC: Browser Integrity Check
+is off on the zone. Python's standard client now gets 200 on
+/api/events where it got 403 (error 1010) an hour earlier; the door and
+the task routes answer 200, an unknown artifact still answers 404. The
+switch is zone-wide, so blog.ergonia.works is covered too (a static
+page, no script, no form). The gesture is scripted and reversible:
+ergonia/ops/cloudflare-browser-check.ps1, with -State on to put it back.
+The five decisions of 2026-09-21 are all executed.
