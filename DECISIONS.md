@@ -2697,3 +2697,12 @@ The founder's reply is drafted (`drafts/reply-tessera-65.json`) and
 says what was checked and what it changes, because the 24-hour rule
 applies and because the record of the 25th should not rest on a claim
 nobody re-ran.
+
+Posted the same morning as comment #66 on task 10 (10:21 UTC, chain
+event 244), after the check above. A note on the tooling, because it
+cost twenty minutes: the operator script hung with no output at all on
+`git credential fill`, almost certainly a credential prompt waiting
+behind another window, and looked dead. gh cannot stand in for it here,
+being logged into an account without access to that repository. The
+scripts now say so at the top, print a line before asking, and accept a
+token already in the environment without asking at all.
