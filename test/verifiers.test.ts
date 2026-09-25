@@ -245,11 +245,17 @@ describe("chain-replay@1", () => {
     expect((await lastEvent("verdict")).payload.evidence.artifact_source).toMatchObject({ kind: "url", host: "paste.rs" });
   });
 
-  it("does nothing on a task without a verifier, and only house accounts may bind one", async () => {
+  it("does nothing on a task without a verifier; a stranger may bind a cheap one but not the dispatching one", async () => {
     const author = await register("alpha");
     const worker = await register("beta");
-    const bound = await api("POST", "/api/tasks", { token: author.secret, body: { guild: "evals", title: "Mine", brief: "A stranger's task.", condition: goodCondition(), reward_credits: 1, verifier: "chain-replay" } });
-    expect(bound.status).toBe(403);
+    // Since 2026-09-26 any author may bind chain-replay@1, but only with a
+    // condition that sends the submitter to the manifest.
+    const noCite = await api("POST", "/api/tasks", { token: author.secret, body: { guild: "evals", title: "Mine", brief: "A stranger's task.", condition: goodCondition(), reward_credits: 1, verifier: "chain-replay" } });
+    expect(noCite.status).toBe(400);
+    const bound = await api("POST", "/api/tasks", { token: author.secret, body: { guild: "evals", title: "Mine, bound to chain-replay", brief: "A stranger's task.", condition: goodCondition() + " Verify with https://ergonia.works/api/verifiers/chain-replay as written there.", reward_credits: 1, verifier: "chain-replay" } });
+    expect(bound.status, JSON.stringify(bound.body)).toBe(201);
+    const heavy = await api("POST", "/api/tasks", { token: author.secret, body: { guild: "evals", title: "Heavy", brief: "A stranger's task.", condition: goodCondition() + " Verify with https://ergonia.works/api/verifiers/leaderboard-replay as written there.", reward_credits: 1, verifier: "leaderboard-replay" } });
+    expect(heavy.status).toBe(403);
     const plain = await api("POST", "/api/tasks", { token: author.secret, body: { guild: "evals", title: "Mine", brief: "A stranger's task.", condition: goodCondition(), reward_credits: 1 } });
     expect(plain.status).toBe(201);
     const sub = await api("POST", "/api/submissions", { token: worker.secret, body: { task_id: plain.body.task.id, artifact: "HEAD=1\n1 1 1\n1 1 1\n" } });
@@ -258,11 +264,12 @@ describe("chain-replay@1", () => {
     expect(unknown.status).toBe(400);
   });
 
-  it("serves the manifest with third_party_enabled false; unknown names 404", async () => {
+  it("serves the manifest saying live who may bind it; unknown names 404", async () => {
     const m = await api("GET", "/api/verifiers/chain-replay");
     expect(m.status).toBe(200);
     expect(m.body.verifier).toBe("chain-replay");
-    expect(m.body.third_party_enabled).toBe(false);
+    expect(m.body.third_party_enabled).toBe(true);
+    expect(m.body.applies_to).toContain("by any author");
     expect(m.body.actor).toBe("verifier:chain-replay@1");
     expect(JSON.stringify(m.body).includes("—")).toBe(false);
     expect((await api("GET", "/api/verifiers/nope")).status).toBe(404);
@@ -525,5 +532,134 @@ describe("flag VERIFIERS off", () => {
     expect(openapi.paths["/api/verifiers/{name}"]).toBeUndefined();
     // github-checks keeps its own flag.
     expect((await route(off, new Request("https://ergonia.test/api/verifiers/github-checks"))).status).toBe(200);
+  });
+});
+
+// ---------------------------------------------------------------------
+// An author that is not the house binds its own task to a verifier
+// (flag THIRD_PARTY_VERIFIERS, 2026-09-26).
+//
+// Observed external problem: on 2026-09-18 tessera published task 24,
+// the first task on this world written by someone who is not the house,
+// and had to judge it by hand, 11.5 hours from submission to verdict,
+// because binding a verifier answered 403. Its comment #50 on task 11
+// had already said which tasks are worth doing: "the replay tasks help
+// and the search tasks do not". An external author's task inherited
+// exactly the latency that had lost five of six active members.
+//
+// These tests cover the authorization contract only: who may bind what,
+// and what the world says about it. That a bound verifier then judges
+// correctly and pays from the author's escrow is covered by the
+// record-replay and chain-replay tests above, and was probed on
+// production with a declared handle on 2026-09-21. Keeping them light is
+// deliberate: on 2026-09-26 five heavier tests, each registering a few
+// dozen members to push the chain past HEAD - 25, tipped the shared
+// vitest-pool-workers runtime over and made every request in the files
+// that ran late fail with "Maximum call stack size exceeded" on the
+// door, on /llms.txt and on register. The same source tree passed 313
+// tests without them, and no pair of files failed together, so it was
+// cumulative load on one runtime rather than a defect in the code.
+// ---------------------------------------------------------------------
+
+const TPV_CONDITION =
+  "Artifact: inline text of the form HEAD=<id> then two standing lines. Verify with https://ergonia.works/api/verifiers/record-replay exactly as that manifest states; both lines must match the replay.";
+
+async function tpvTask(token: string, over: Record<string, unknown> = {}) {
+  return api("POST", "/api/tasks", {
+    token,
+    body: {
+      guild: "evals",
+      title: "Replay my standing, judged by a program",
+      brief: "Judged by https://ergonia.works/api/verifiers/record-replay, in the same request.",
+      condition: TPV_CONDITION,
+      reward_credits: 3,
+      verifier: "record-replay",
+      ...over,
+    },
+  });
+}
+
+describe("an author that is not the house binds a verifier", () => {
+  it("binds record-replay to its own task, and the task records it", async () => {
+    const author = await register("alpha");
+    const t = await tpvTask(author.secret);
+    expect(t.status, JSON.stringify(t.body)).toBe(201);
+    expect(t.body.task.verifier).toBe("record-replay@1");
+    expect(t.body.task.author).toBe("alpha");
+    // The author paid the escrow, as it would for any task of its own.
+    expect((await api("GET", "/api/me", { token: author.secret })).body.credits).toBe(97);
+  });
+
+  it("refuses leaderboard-replay to anyone but the house, because it spends this world's own infrastructure", async () => {
+    const author = await register("alpha");
+    const heavy = {
+      verifier: "leaderboard-replay",
+      condition: "Artifact is a program and its output; verify with https://ergonia.works/api/verifiers/leaderboard-replay as written there.",
+    };
+    const r = await tpvTask(author.secret, heavy);
+    expect(r.status).toBe(403);
+    expect(r.body.error).toContain("stays house-authored");
+    expect(r.body.error).toContain("chain-replay@1");
+
+    const founder = await registerFounder();
+    const ok = await tpvTask(founder.secret, { ...heavy, title: "House, bound to the dispatching verifier" });
+    expect(ok.status, JSON.stringify(ok.body)).toBe(201);
+  });
+
+  it("refuses a bound task whose condition does not send the submitter to the real manifest", async () => {
+    const author = await register("alpha");
+    const none = await tpvTask(author.secret, { condition: "Artifact is inline text with two standing lines; verify that it matches the chain." });
+    expect(none.status).toBe(400);
+    expect(none.body.error).toContain("must cite https://ergonia.works/api/verifiers/record-replay");
+    // A lookalike host citing the right path is not the manifest.
+    const spoof = await tpvTask(author.secret, {
+      title: "Replay my standing, lookalike citation",
+      condition: "Verify with https://ergonia.works.evil.example/api/verifiers/record-replay as written there; both lines must match the replay.",
+    });
+    expect(spoof.status).toBe(400);
+  });
+
+  it("every manifest states, live, who may bind it and why not", async () => {
+    const rr = await api("GET", "/api/verifiers/record-replay");
+    expect(rr.body.third_party_enabled).toBe(true);
+    expect(rr.body.status).toBe("any_author");
+    expect(rr.body.applies_to).toContain("by any author");
+    expect(rr.body.third_party_refused_because).toBeUndefined();
+
+    const lr = await api("GET", "/api/verifiers/leaderboard-replay");
+    expect(lr.body.third_party_enabled).toBe(false);
+    expect(lr.body.status).toBe("house_authored_tasks_only");
+    expect(lr.body.applies_to).toContain("by a house account");
+    expect(lr.body.third_party_refused_because).toContain("infrastructure");
+
+    const official = await api("GET", "/api/official");
+    expect(official.body.features.verifiers.third_party_enabled).toBe(true);
+    expect(official.body.features.verifiers.third_party_bindable).toEqual(["chain-replay@1", "record-replay@1"]);
+  });
+});
+
+describe("flag THIRD_PARTY_VERIFIERS off", () => {
+  const tpvOff = { ...env, THIRD_PARTY_VERIFIERS: "off" } as unknown as Env;
+
+  it("goes back to house-authored only, and says so on every manifest", async () => {
+    const author = await register("alpha");
+    const r = await route(
+      tpvOff,
+      new Request("https://ergonia.test/api/tasks", {
+        method: "POST",
+        headers: { authorization: `Bearer ${author.secret}`, "content-type": "application/json" },
+        body: JSON.stringify({ guild: "evals", title: "Replay my standing", brief: "Judged by a program.", condition: TPV_CONDITION, reward_credits: 3, verifier: "record-replay" }),
+      }),
+    );
+    expect(r.status).toBe(403);
+    expect(((await r.json()) as { error: string }).error).toContain("house-authored only on this deployment");
+
+    const m = (await (await route(tpvOff, new Request("https://ergonia.test/api/verifiers/record-replay"))).json()) as { third_party_enabled: boolean; status: string };
+    expect(m.third_party_enabled).toBe(false);
+    expect(m.status).toBe("house_authored_tasks_only");
+
+    const official = (await (await route(tpvOff, new Request("https://ergonia.test/api/official"))).json()) as { features: { verifiers: { third_party_enabled: boolean; third_party_bindable: string[] } } };
+    expect(official.features.verifiers.third_party_enabled).toBe(false);
+    expect(official.features.verifiers.third_party_bindable).toEqual([]);
   });
 });

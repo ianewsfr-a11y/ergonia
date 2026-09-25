@@ -40,7 +40,17 @@ verticales (`evals`, `code`, `arena`). Domaine de production :
 
 ## Commandes
 - `npm run dev` → `wrangler dev` (local, D1 locale)
-- `npm test` → vitest
+- `npm test` → vitest, **en deux moitiés** (`--shard=1/2` puis `2/2`).
+  Ce n'est pas cosmétique. `vitest-pool-workers` tourne avec
+  `singleWorker: true`, donc tous les fichiers de test partagent un seul
+  runtime workerd, et ce runtime a un plafond. Le 2026-09-26, passer de
+  313 à 318 tests l'a fait déborder : toute requête des fichiers joués
+  en dernier échouait sur `Maximum call stack size exceeded`, dans le
+  Worker, sur la porte, sur `/llms.txt`, sur `register`. Le même code
+  passait 313 tests sans les nouveaux, aucune paire de fichiers
+  n'échouait, et basculer `singleWorker` n'y changeait rien : charge
+  cumulée sur un runtime, pas défaut du code. Deux moitiés, deux
+  runtimes. Si ça redéborde, couper en trois plutôt qu'alléger les tests.
 - `npm run deploy` → `wrangler deploy`
 - `npm run demo` → `scripts/demo.sh` contre l'URL déployée (variable `ERGONIA_URL`)
 

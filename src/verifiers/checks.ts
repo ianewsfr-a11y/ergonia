@@ -51,6 +51,22 @@ export async function recordCheck(
   return Number(inserted.meta.last_row_id);
 }
 
+// How many times this task has made a verifier run today. Both
+// in-request verifiers replay the chain from 1 to HEAD, so the cost of a
+// submission grows with the chain; a rejected submission frees the slot
+// and invites another. Registration is free, so without a ceiling a
+// stranger with many handles could make this world replay its whole log
+// as often as it liked. Raised on 2026-09-26 with third-party binding.
+export async function verifierRunsToday(env: Env, taskId: number): Promise<number> {
+  const d = new Date(nowMs());
+  const startOfDay = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  const row = await env.DB
+    .prepare("SELECT COUNT(*) AS n FROM verifier_checks c JOIN submissions s ON s.id = c.submission_id WHERE s.task_id = ? AND c.created_at >= ?")
+    .bind(taskId, startOfDay)
+    .first<{ n: number }>();
+  return Number(row?.n ?? 0);
+}
+
 export async function latestCheck(env: Env, submissionId: number, verifier: string, stage: CheckStage): Promise<CheckRow | null> {
   return (
     (await env.DB

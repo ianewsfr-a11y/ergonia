@@ -93,6 +93,25 @@ async function main() {
     summary.push(`${key}=${got}`);
   }
 
+  // THIRD_PARTY_VERIFIERS has no block of its own: it says whether an
+  // author outside the house may bind a verifier, which is a property of
+  // the verifiers feature. Checked here by hand, including the list of
+  // verifiers it opens, because "any author may bind" is the kind of
+  // sentence that must never be true in the docs and false on the wire.
+  {
+    const want = vars.THIRD_PARTY_VERIFIERS === "on";
+    const got = features.verifiers?.third_party_enabled;
+    if (got !== want) {
+      fail(`features.verifiers.third_party_enabled is ${JSON.stringify(got)} on ${origin}; wrangler.toml declares THIRD_PARTY_VERIFIERS=${JSON.stringify(vars.THIRD_PARTY_VERIFIERS)}`);
+    }
+    const bindable = features.verifiers?.third_party_bindable ?? [];
+    const expected = want ? ["chain-replay@1", "record-replay@1"] : [];
+    if (JSON.stringify(bindable) !== JSON.stringify(expected)) {
+      fail(`features.verifiers.third_party_bindable is ${JSON.stringify(bindable)} on ${origin}; expected ${JSON.stringify(expected)}. leaderboard-replay@1 dispatches a job on this world's own infrastructure and must never appear here.`);
+    }
+    summary.push(`third_party_verifiers=${want ? "on" : "off"}`);
+  }
+
   // Route-level assertions, so "off" means unreachable and "on" means served.
   const probes = [
     { feature: "verifiers", url: `${origin}/api/verifiers/chain-replay`, onStatus: 200 },
@@ -110,10 +129,29 @@ async function main() {
     if (on && p.onIsAlso404 && r.status !== 404) fail(`${p.url} answered HTTP ${r.status}; expected 404 for an unknown artifact`);
   }
   if (features.verifiers?.status === "on") {
-    for (const url of [`${origin}/api/verifiers/chain-replay`, `${origin}/api/verifiers/leaderboard-replay`, `${origin}/api/verifiers/record-replay`]) {
-      const r = await get(url);
-      if (r.body?.third_party_enabled !== false) fail(`${url} does not report third_party_enabled=false`);
+    // Each manifest states, live, whether a stranger may bind it. That
+    // claim and the disclosure have to be the same claim.
+    const bindable = new Set(features.verifiers.third_party_bindable ?? []);
+    for (const name of ["chain-replay", "leaderboard-replay", "record-replay"]) {
+      const r = await get(`${origin}/api/verifiers/${name}`);
+      const m = r.status === 200 ? r.body : null;
+      if (!m) {
+        fail(`GET /api/verifiers/${name} answered HTTP ${r.status}`);
+        continue;
+      }
+      const want = bindable.has(`${name}@1`);
+      if (m.third_party_enabled !== want) {
+        fail(`/api/verifiers/${name} says third_party_enabled=${JSON.stringify(m.third_party_enabled)} while /api/official lists ${JSON.stringify([...bindable])}`);
+      }
+      if (!want && !m.third_party_refused_because) {
+        fail(`/api/verifiers/${name} refuses third parties without saying why`);
+      }
     }
+    // The blanket "no manifest may say yes" assertion above this line was
+    // right until 2026-09-26 and is now wrong: two of the three are
+    // bindable by any author. The per-manifest check just above compares
+    // each one against what /api/official lists, which is the claim that
+    // actually has to hold.
   }
 
   const gh = vars.GITHUB_INTEGRATION === "on" ? "github_integration.status = house_dogfood, third_party_enabled = false; " : "";

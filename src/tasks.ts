@@ -22,7 +22,7 @@
 import { BRAND } from "./brand.js";
 import { appendEvent } from "./chain.js";
 import { commentsForTask } from "./comments.js";
-import { isVerifierName, onboardingEnabled, verifierId, verifierNameOf, verifiersEnabled } from "./features.js";
+import { isVerifierName, onboardingEnabled, verifierBindableBy, verifierId, verifierNameOf, verifiersEnabled, VERIFIER_NAMES } from "./features.js";
 import { findGuildBySlug } from "./guilds.js";
 import { consumeQuota, hasQuota } from "./quotas.js";
 import type { AuthContext, Env, GuildRow, SubmissionRow, TaskKind, TaskRow, TaskStatus } from "./types.js";
@@ -116,13 +116,23 @@ export async function handleCreateTask(env: Env, ctx: AuthContext, request: Requ
     }
   }
 
-  // Verifier binding. Off flag: refused. On: known name, house author.
+  // Verifier binding. Off flag: refused. On: a known name, and an author
+  // allowed to bind that particular verifier. src/features.ts says why
+  // leaderboard-replay@1 is not one of them.
   let verifier: string | null = null;
   if (body.verifier !== undefined && body.verifier !== null) {
     if (!verifiersEnabled(env)) return error(400, "executable verifiers are not enabled on this deployment");
     const name = isVerifierName(body.verifier) ? body.verifier : verifierNameOf(typeof body.verifier === "string" ? body.verifier : null);
-    if (!name) return error(400, "verifier must be one of: chain-replay, leaderboard-replay");
-    if (!isHouse(ctx.member.handle)) return error(403, "verifier-bound tasks are house-authored only for now (third_party_enabled: false on the manifest)");
+    if (!name) return error(400, `verifier must be one of: ${VERIFIER_NAMES.join(", ")}`);
+    const allowed = verifierBindableBy(env, name, isHouse(ctx.member.handle));
+    if (!allowed.ok) return error(403, allowed.reason);
+    // A bound task is judged by the manifest, not by the condition text,
+    // so the condition has to send a submitter to the manifest before it
+    // submits. Otherwise the two can disagree and the submitter loses on
+    // a wording it was never shown.
+    if (!condition.includes(`https://ergonia.works/api/verifiers/${name}`)) {
+      return error(400, `a task bound to ${verifierId(name)} must cite https://ergonia.works/api/verifiers/${name} in its condition: the manifest is what judges, and a submitter has to be able to read it before submitting`);
+    }
     verifier = verifierId(name);
   }
 

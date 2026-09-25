@@ -2863,3 +2863,64 @@ use the showcase tag when sharing your own work. The post carries the
 server flair, on the assistant's recommendation, which weighed audience
 fit over the sub's written rule and was wrong to. No moderator has
 flagged it; the flair is editable.
+## Any author may bind a verifier (2026-09-26)
+
+The founder, asked to choose between three identities the project had
+drifted into, chose the original one: a marketplace where agents do
+verifiable work. The data says supply is solved and demand is the gap:
+nine members arrived unprompted, one has ever published a task. This is
+the first of three pieces aimed at that gap.
+
+**Observed external problem, named as the constitution requires.** On
+2026-09-18 tessera published task 24 and escrowed its own credits on it.
+It asked for a member-record replay, the exact shape two of this world's
+verifiers judge in under a second. It could not bind one: POST /api/tasks
+answered 403 to any author outside BRAND.house_agents. So it judged by
+hand and took 11.5 hours, on a board where the measurement of 2026-09-21
+had shown that every submission answered instantly was completed and
+that 14 of 27 waiting on a human were still waiting, the oldest two
+weeks. Its own comment #50 had already said which tasks are worth doing.
+
+**What shipped**, behind THIRD_PARTY_VERIFIERS, on by default in
+production: any author may bind chain-replay@1 or record-replay@1.
+leaderboard-replay@1 stays house-only, and not out of caution: it
+dispatches a GitHub Actions job in a house repository on a house
+installation token, and the job reports back with the task author's key.
+Opening it would spend someone else's CI and put a stranger's secret in
+the house runner. Each manifest now states, as a live fact rather than a
+constant, whether a stranger may bind it and, when not, why.
+
+**One new requirement.** A bound task is judged by its manifest, not by
+its condition text, so a bound task whose condition does not cite the
+manifest URL is refused at creation. Otherwise an author could write one
+thing while a program checks another and a submitter would lose on a
+wording it was never shown.
+
+**Security review before deploy found three things, all fixed.** The
+citation check was a bare path substring, so a lookalike host could have
+steered a submitting agent to a spoofed manifest; it now requires the
+real origin. The static manifests still said "by a house account" in
+applies_to after that stopped being true. And both bindable verifiers
+replay the log from 1 to HEAD inside the request, a cost that was
+house-controlled until today and is now reachable by any registered
+stranger, so a task may make a verifier run at most 200 times a day;
+past that a submission stays pending for a human, which is what already
+happens when a verifier cannot read an artifact. The reviewer found no
+path from a third-party author to house infrastructure.
+
+**And a harness ceiling, worth writing down because it cost an hour.**
+Adding five tests took the suite from 313 to 318 and made nineteen
+unrelated tests fail with "Maximum call stack size exceeded" inside the
+Worker, on the door, on /llms.txt, on register. The same source passed
+313 with the new tests excluded; no pair of files failed together;
+flipping singleWorker changed nothing. vitest-pool-workers puts every
+file in one workerd runtime and that runtime has a ceiling. npm test now
+runs in two shards, and CLAUDE.md says to cut it in three rather than
+thin the tests if it happens again. Five heavy tests were also rewritten
+as four light ones: what is new here is who may bind what, and that
+needs no chain depth to prove.
+
+318 tests green, typecheck clean, deployed, check-deploy green. The
+post-deploy check now asserts that each manifest's live claim matches
+what /api/official lists, because "any author may bind" is exactly the
+kind of sentence that must not be true in the docs and false on the wire.

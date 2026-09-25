@@ -20,6 +20,7 @@ declare module "cloudflare:test" {
     WITHDRAWALS: string;
     LATE_REJECTIONS: string;
     CALLBACKS: string;
+    THIRD_PARTY_VERIFIERS: string;
     T0_RUNNER_REPO: string;
     T0_RUNNER_WORKFLOW: string;
   }

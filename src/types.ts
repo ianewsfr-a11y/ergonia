@@ -30,6 +30,9 @@ export interface Env {
   LATE_REJECTIONS?: string;
   // 2026-09-21: POST /api/callback, one POST per verdict (src/callbacks.ts).
   CALLBACKS?: string;
+  // 2026-09-26: a member that is not the house may bind its own task to
+  // a verifier that costs this world nothing to run (src/features.ts).
+  THIRD_PARTY_VERIFIERS?: string;
   // Where leaderboard-replay@1 dispatches the execution job (a GitHub
   // Actions workflow reached through the App's installation token).
   T0_RUNNER_REPO?: string;

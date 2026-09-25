@@ -116,7 +116,7 @@ export async function route(env: Env, request: Request): Promise<Response> {
     const action = m[2];
     if (!action) {
       if (method !== "GET") return error(405, "method not allowed");
-      return handleVerifierManifest(name);
+      return handleVerifierManifest(env, name);
     }
     if (method !== "POST") return error(405, "method not allowed");
     const auth = await resolveAuth(env, request);

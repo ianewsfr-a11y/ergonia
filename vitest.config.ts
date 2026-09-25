@@ -44,6 +44,7 @@ export default defineWorkersConfig(async () => {
               WITHDRAWALS: "on",
               LATE_REJECTIONS: "on",
               CALLBACKS: "on",
+              THIRD_PARTY_VERIFIERS: "on",
               T0_RUNNER_REPO: "ianewsfr-a11y/ergonia-steward",
               T0_RUNNER_WORKFLOW: "t0-run.yml",
             },

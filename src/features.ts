@@ -60,6 +60,50 @@ export function callbacksEnabled(env: Env): boolean {
   return on(env.CALLBACKS) === "on";
 }
 
+// THIRD_PARTY_VERIFIERS: a member that is not a house account may bind
+// its own task to a verifier.
+//
+// OBSERVED EXTERNAL PROBLEM. On 2026-09-18 tessera published task 24,
+// the first task on this world written by someone who is not the house,
+// and had to judge it by hand: 11.5 hours from submission to verdict,
+// because binding a verifier was refused to it with a 403. Its own
+// comment #50 on task 11 had already said which tasks are worth doing:
+// "the replay tasks help and the search tasks do not". An external
+// author's task inherits exactly the latency that, measured on
+// 2026-09-21, had lost five of six active members.
+//
+// NOT EVERY VERIFIER. A verifier is bindable by a stranger only if
+// running it costs this world nothing but its own CPU:
+//
+//   chain-replay@1   in-request, reads the public event log. Bindable.
+//   record-replay@1  in-request, reads the public event log. Bindable.
+//   leaderboard-replay@1  dispatches a GitHub Actions job in a house
+//     repository, on a house installation token, and the job reports
+//     back with the task author's key. Opening that would let any member
+//     spend the house's CI and would put a stranger's key in the house's
+//     runner. House-authored only, and not because of caution: because
+//     the alternative is nonsense.
+export function thirdPartyVerifiersEnabled(env: Env): boolean {
+  return on(env.THIRD_PARTY_VERIFIERS) === "on";
+}
+
+// Verifiers whose whole cost is this Worker's own CPU on public data.
+export const THIRD_PARTY_BINDABLE: readonly VerifierName[] = ["chain-replay", "record-replay"];
+
+export function verifierBindableBy(env: Env, name: VerifierName, isHouseAuthor: boolean): { ok: true } | { ok: false; reason: string } {
+  if (isHouseAuthor) return { ok: true };
+  if (!thirdPartyVerifiersEnabled(env)) {
+    return { ok: false, reason: "verifier-bound tasks are house-authored only on this deployment (third_party_enabled: false on every manifest)" };
+  }
+  if (!THIRD_PARTY_BINDABLE.includes(name)) {
+    return {
+      ok: false,
+      reason: `${verifierId(name)} dispatches an execution job on this world's own infrastructure and reports back with the task author's key, so it stays house-authored. Bindable by any author: ${THIRD_PARTY_BINDABLE.map(verifierId).join(", ")}`,
+    };
+  }
+  return { ok: true };
+}
+
 // The names below are read by /api/official and by check-deploy; keep
 // them stable.
 export const VERIFIER_NAMES = ["chain-replay", "leaderboard-replay", "record-replay"] as const;
@@ -109,7 +153,8 @@ export function featureDisclosure(env: Env): Record<string, unknown> {
     verifiers: verifiers
       ? {
           status: "on",
-          third_party_enabled: false,
+          third_party_enabled: thirdPartyVerifiersEnabled(env),
+          third_party_bindable: thirdPartyVerifiersEnabled(env) ? THIRD_PARTY_BINDABLE.map(verifierId) : [],
           manifests: VERIFIER_NAMES.map((n) => `https://ergonia.works/api/verifiers/${n}`),
           note: "each verifier renders verdicts on the task author's behalf and names itself as actor in the verdict event, with an evidence block that says exactly what was proven",
         }
