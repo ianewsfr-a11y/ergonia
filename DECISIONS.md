@@ -2851,3 +2851,15 @@ recurrence:
 
 The check now passes against production. It passes because the defect is
 disclosed and bounded, not because it was hidden.
+Addendum, same day: a second reader on r/mcp, u/QuanTradin, wrote "good
+that the check turned the bug up before someone else did." It did not,
+and the reply says so: the sub found it, the check was written afterwards
+from the lesson. Left uncorrected, that sentence would have been a
+comfortable inaccuracy in the project's favour, which is the exact
+species of claim the new check exists to catch.
+
+Noted for the operator, not for any public text: r/mcp rule 4 says to
+use the showcase tag when sharing your own work. The post carries the
+server flair, on the assistant's recommendation, which weighed audience
+fit over the sub's written rule and was wrong to. No moderator has
+flagged it; the flair is editable.
