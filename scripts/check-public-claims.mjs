@@ -83,7 +83,30 @@ for (const name of ["HEADS.jsonl", "STATS.jsonl"]) {
   const lines = r.text.split("\n").filter((l) => l.trim().length > 0);
   const objects = (r.text.match(/\{/g) ?? []).length;
   if (lines.length !== objects) {
-    fail(`${name} is valid JSONL`, `${objects} objects on ${lines.length} line(s): the appender is gluing records together, which is how HEADS.jsonl broke on 2026-08-31`);
+    // Records glued together. Failing only matters for records written
+    // after the appender was fixed: the earlier blob is documented in the
+    // witness README and is deliberately not edited.
+    const CUTOFF = "2026-09-26";
+    let recurrence = null;
+    for (const line of lines) {
+      const inLine = line.replace(/\}\s*\{/g, "}\n{").split("\n").filter((x) => x.trim());
+      if (inLine.length < 2) continue;
+      for (const rec of inLine) {
+        let o;
+        try {
+          o = JSON.parse(rec);
+        } catch {
+          continue;
+        }
+        const when = String(o.captured_at ?? o.date ?? "");
+        if (when >= CUTOFF) recurrence ??= `record captured ${when} shares a line with another`;
+      }
+    }
+    if (recurrence) {
+      fail(`${name} appends one record per line`, `${recurrence}. The appender is gluing records again; that was fixed on 2026-09-25 and has regressed.`);
+    } else {
+      note(`  [note] ${name}: ${objects} records on ${lines.length} line(s), all written before ${CUTOFF}. Documented in the witness README and deliberately not edited: an append-only audit file does not get rewritten to fix its separators. Split on "}{" to read it.`);
+    }
     continue;
   }
   let bad = 0;

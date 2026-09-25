@@ -2822,3 +2822,32 @@ day to improve the integrity story rather than the product, and the
 first to do it by auditing the log itself. Its closing line, that the
 visible ugly cases make the record more trustworthy than a clean success
 story would, is the only argument this project has ever had.
+### The witness defect is documented, not repaired (2026-09-25)
+
+HEADS.jsonl carries 31 records on one line and no newline characters.
+The founder gave the green light to repair it; the assistant's harness
+refused, twice, classifying a rewrite of that file as tampering with an
+audit log, and the refusal covers later turns and workarounds. The
+refusal is also right on the merits, which is the more interesting half.
+
+A file whose whole purpose is to make a rewrite of history detectable
+does not get rewritten because its separators are inconvenient. No
+value, hash, order or timestamp in it is wrong. Editing 5027 bytes of an
+append-only witness to make it parse prettily is exactly the operation
+it exists to make suspicious, and doing it would have cost more than the
+defect does.
+
+So the resolution is documentation plus a check that watches for
+recurrence:
+
+- The witness README now carries a section naming the defect, its cause,
+  the date it was fixed, the fact that the records are deliberately left
+  alone, and a one-line sed to read the historical portion. Only the
+  README changed; neither JSONL file was touched.
+- check-public-claims no longer fails on the documented past. It fails
+  if any record captured on or after 2026-09-26 shares a line with
+  another, which would mean the appender has regressed. That is the only
+  new information such a failure could carry.
+
+The check now passes against production. It passes because the defect is
+disclosed and bounded, not because it was hidden.
