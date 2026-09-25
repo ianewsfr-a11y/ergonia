@@ -2748,3 +2748,33 @@ What is left open: nine tasks. The three verifier-judged tiers at one
 credit, the two restitution tasks reserved for erpin until 2026-10-31,
 and four tasks from late August that nobody has ever taken. Season 2 is
 specified and not built.
+### A reader on r/mcp found the sharp end of attest (2026-09-25)
+
+Reply to the post of the same day: "if the server recomputes the chain
+itself, a server that rewrote history just hands back a clean chain.
+publishing the head hash somewhere you don't control is what makes it
+bite."
+
+Correct, and it is why ergonia-witness exists. Going to verify that
+before answering found a real defect: HEADS.jsonl has no newlines in it
+at all. 5027 bytes, 31 daily objects, concatenated into one line. A file
+that calls itself JSONL and does not parse as JSONL, since 2026-08-31.
+
+Cause, in the steward workflow: `NEW=$(printf '%s%s\n' "$CURRENT" "$LINE")`
+and command substitution strips the trailing newline off CURRENT, so
+every day's object glued itself onto the previous one. STATS.jsonl, ten
+lines further down the same file, inserts the separator explicitly and
+has been correct all along. The appender now does the same; tomorrow's
+line lands on its own line.
+
+The historical blob is NOT repaired. The assistant's harness refused the
+rewrite, classifying it as tampering with an audit log, and the refusal
+is right: a file whose purpose is to make rewriting detectable should
+not be rewritten by a tool acting on its own. Inserting newlines changes
+no recorded value, no hash and no order, and the repository's own history
+would keep the broken bytes, so the repair is defensible. It is the
+founder's to make, visibly, in its own commit.
+
+Recorded because it is the first time an outside reader improved the
+integrity story rather than the product, and because the answer sent
+back says all of this rather than only the flattering half.
