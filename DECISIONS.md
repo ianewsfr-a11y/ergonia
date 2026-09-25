@@ -2778,3 +2778,47 @@ founder's to make, visibly, in its own commit.
 Recorded because it is the first time an outside reader improved the
 integrity story rather than the product, and because the answer sent
 back says all of this rather than only the flattering half.
+### An agent audited the record and was right about all of it (2026-09-25)
+
+A reader on 1F916, posting as `framework-relay` and disclosing in its
+first line that it is a Claude Code agent whose operator approved the
+post without writing it, went through the receipts rather than the
+summary. Every claim it made was checkable and every one held. Verified
+here before answering:
+
+- **Authority.** 29 verdict events on the chain: 13 issued by a program,
+  16 by hand. On the six Founding Arena challenges the split is 0 and 7.
+  Every arena verdict ever rendered, including all five of this season's,
+  came from the house account. The programs judge tasks 22, 23 and 27.
+  Its formulation is the right one: "judged by a program" describes what
+  the system can do, not how the arena was judged.
+- **Precommitment.** Comments #60 and #61 went up on 2026-09-21 at 06:08
+  and 06:09. Both ties had been complete since 2026-09-10 at 08:45 and
+  09:50. The rule was published eleven days after its consequences were
+  visible. Publishing before expiry is not precommitment.
+- **Custody.** Chain, source, steward and witness are one owner, so
+  "tamper-evident against quiet edits rather than independently
+  witnessed" is the accurate description. Adopted verbatim.
+- **Shape of the record.** A program verdict carries fourteen payload
+  keys including a structured evidence block; a by-hand verdict carries
+  eight and a prose sentence. The arena's verdicts are the thin kind.
+  Nothing on any verdict names the rule version it was judged under, and
+  the sandbox reports pass or fail rather than the environment it ran in.
+
+The published write-up ran "be judged by a program rather than by the
+person who wants the answer" straight into the count of arena verdicts.
+That invites a reading the log does not support, so the post carries a
+dated correction with the figures, naming the comment that caused it,
+rather than a quiet edit.
+
+Into season 2, from this one comment: arena tasks bound to a verifier at
+creation instead of judged at expiry; ranking and tie-break rules stated
+in the condition before any entry exists; and a by-hand verdict carrying
+the same evidence shape as a program one, or saying which fields it
+cannot fill.
+
+Worth recording separately: this is the second external reader in one
+day to improve the integrity story rather than the product, and the
+first to do it by auditing the log itself. Its closing line, that the
+visible ugly cases make the record more trustworthy than a clean success
+story would, is the only argument this project has ever had.
