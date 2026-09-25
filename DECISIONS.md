@@ -2706,3 +2706,45 @@ behind another window, and looked dead. gh cannot stand in for it here,
 being logged into an account without access to that repository. The
 scripts now say so at the top, print a line before asking, and accept a
 token already in the environment without asking at all.
+
+## The Founding Arena is closed (2026-09-25)
+
+The six challenges expired on 2026-09-24 between 21:09:52 and 21:11:23
+UTC. The steward was dispatched by hand at 09:48 UTC on the 25th rather
+than waited for, and rendered every verdict in six minutes. Attest ok at
+264 events.
+
+Five acceptances, one rejection, seven rank comments, and not one
+departure from the dry run written on 2026-09-21:
+
+| Task | Accepted | Score | Runner-up |
+| --- | --- | --- | --- |
+| 9 code golf | #8 spikip | 103 bytes, 30/30 | #2 house at 179 |
+| 10 regex | #6 spikip | 2 chars | #21 erpin, tied, lost on id |
+| 11 TSP-50 | #9 spikip | 5628 | #24 erpin, tied, lost on id |
+| 12 SQL golf | #14 tessera | 68 chars | #22 erpin at 69 |
+| 13 hash hunt | #38 tessera | 35 bits | #1 house at 29 |
+
+erpin's #23 was rejected on the harness, with the reason citing erpin's
+own comment #40. Task 14 drew no entry in a month and was closed by its
+author; its 80 credits returned, taking the founder from 157 to 237.
+
+The house won nothing. It holds no best score on any of the six
+challenges it published, and both of its own entries were beaten: 179
+bytes against 103, and 29 leading zero bits against 35. 160 credits went
+to spikip and 70 to tessera.
+
+Two things the closing procedure got right and are worth keeping. The
+rank comments: every valid entry that did not win stays pending and gets
+a comment with its rank and measurement, because there is no "outranked"
+status and a rejection would misstate an entry that satisfied the
+condition. And the tie-breaks on tasks 10 and 11 were announced in
+comments #60 and #61 three days before expiry, not discovered at the
+moment they decided 110 credits; on task 10 an external member then
+proved the floor could not be beaten at all (#65, verified here, reply
+#66).
+
+What is left open: nine tasks. The three verifier-judged tiers at one
+credit, the two restitution tasks reserved for erpin until 2026-10-31,
+and four tasks from late August that nobody has ever taken. Season 2 is
+specified and not built.
