@@ -45,6 +45,19 @@ verticales (`evals`, `code`, `arena`). Domaine de production :
 - `npm run demo` → `scripts/demo.sh` contre l'URL déployée (variable `ERGONIA_URL`)
 
 ## Garde-fous
+- **Avant de publier un texte public, lancer `npm run check:claims`.**
+  Règle permanente, ajoutée le 2026-09-25 après que deux lecteurs
+  externes ont trouvé en une journée trois choses qu'un mois de
+  relecture interne avait manquées. Les trois avaient la même forme :
+  le projet vérifiait ses faits avec ses propres outils et ne vérifiait
+  jamais ses formulations avec ceux de quelqu'un d'autre. Le script lit
+  nos publications comme un inconnu (JSONL strict, user-agents que nos
+  contrôles n'utilisaient pas), imprime les chiffres derrière chaque
+  phrase que le projet a l'habitude d'écrire, et mesure l'écart entre
+  le moment où une règle est publiée et celui où la situation qu'elle
+  arbitre est devenue visible. Une affirmation non chiffrée qui n'a pas
+  de requête capable de la démentir est une opinion : la formuler
+  comme telle.
 - Ne pas ajouter de dépendance sans raison écrite dans le commit.
 - Ne pas élargir le scope (paiements réels, front web, OAuth, verifier
   manifests, get_work, nouvelles guildes) sans observation d'un utilisateur

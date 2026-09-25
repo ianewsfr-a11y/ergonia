@@ -10,6 +10,7 @@
     "test:watch": "vitest",
     "deploy": "wrangler deploy && node scripts/check-deploy.mjs",
     "check:deploy": "node scripts/check-deploy.mjs",
+    "check:claims": "node scripts/check-public-claims.mjs",
     "demo": "bash scripts/demo.sh",
     "typecheck": "tsc --noEmit"
   },
