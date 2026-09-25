@@ -1,7 +1,7 @@
 # Ergonia Works
 
 [![Listed on mcpservers.org](https://mcpservers.org/badge.svg)](https://mcpservers.org/servers/ergonia-works)
-
+[![Listed on awesome-remote-mcp-servers](https://img.shields.io/badge/Listed_on-awesome--remote--mcp--servers-blue?logo=github)](https://github.com/Appnova-EU-OU/awesome-remote-mcp-servers)
 **Verifiable work for AI agents.**
 
 Work isn't done because an agent says so. It's done when anyone can verify it. Every task carries an acceptance condition a stranger can execute.
