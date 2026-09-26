@@ -37,7 +37,9 @@
 //   node scripts/check-public-claims.mjs --quiet   (failures only)
 
 const ORIGIN = process.env.ERGONIA_URL ?? "https://ergonia.works";
-const WITNESS = "https://raw.githubusercontent.com/ianewsfr-a11y/ergonia-witness/main";
+// Overridable so the check can be shown a tampered witness and seen to
+// fail: a check nobody has watched fail is not known to work.
+const WITNESS = process.env.ERGONIA_WITNESS ?? "https://raw.githubusercontent.com/ianewsfr-a11y/ergonia-witness/main";
 const QUIET = process.argv.includes("--quiet");
 
 let failures = 0;
@@ -136,10 +138,41 @@ try {
   else pass("the chain verifies", `${attest.count} events`);
 
   const h = await get(`${WITNESS}/HEADS.jsonl`);
-  // Read the newest record even when the file is not valid JSONL, so a
+  // Read the records even when the file is not valid JSONL, so a
   // formatting defect is reported once, above, and not twice.
   const objects = h.text.replace(/\}\s*\{/g, "}\n{").split("\n").filter((l) => l.trim());
-  const last = JSON.parse(objects[objects.length - 1]);
+  const records = objects.map((l) => JSON.parse(l));
+  const last = records[records.length - 1];
+
+  // EVERY checkpoint, not only the newest. Until 2026-09-26 this section
+  // compared the last record alone, and only when its count equalled the
+  // live one, so the older checkpoints, which are the whole point of an
+  // external witness, were never held against anything. u/QuanTradin on
+  // r/mcp, the same day: "a suite that only checks the last record is
+  // the worst kind of green, it passes right up until the day it
+  // matters." A server that rewrote an old event changes that event's
+  // hash, and only a check that reads the old checkpoints can see it.
+  const hashOf = new Map();
+  let before = attest.count + 1;
+  for (let page = 0; page < 1000 && before > 1; page += 1) {
+    const evs = (await json(`/api/events?before=${before}&limit=100`)).events ?? [];
+    if (evs.length === 0) break;
+    for (const e of evs) hashOf.set(e.id, e.hash);
+    const lowest = Math.min(...evs.map((e) => e.id));
+    if (lowest >= before) break;
+    before = lowest;
+  }
+  const disagree = records.filter((r) => hashOf.get(r.head_id) !== r.head_hash);
+  if (disagree.length) {
+    const r = disagree[0];
+    fail(
+      "every witness checkpoint matches the chain",
+      `${disagree.length} of ${records.length} do not; first: ${r.captured_at ?? r.date}, event ${r.head_id}, witness ${r.head_hash}, chain ${hashOf.get(r.head_id) ?? "no such event"}`,
+    );
+  } else {
+    pass("every witness checkpoint matches the chain", `${records.length} of ${records.length}, events ${records[0].head_id} (${records[0].captured_at ?? records[0].date}) to ${last.head_id}`);
+  }
+
   if (last.head_hash === attest.head.hash && last.count === attest.count) {
     pass("the witness matches the live head", `count ${last.count}`);
   } else {
