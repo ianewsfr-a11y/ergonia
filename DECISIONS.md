@@ -3029,6 +3029,10 @@ that serves a task, not only by the new path. A deploy that lands before
 migration 0008 answers 500 on GET /api/tasks for everyone. The migration
 alone is harmless: a column the running code does not select.
 
-333 tests green, typecheck clean. Migration 0008 is not applied and the
-Worker is not deployed: the assistant's harness refuses production
-writes, so both are the founder's to run, migration first.
+333 tests green, typecheck clean. Migration 0008 applied and the Worker
+deployed on 2026-09-26, migration first, check-deploy green. Verified
+live afterwards: GET /api/tasks answers 200, which is the query that
+would have failed had the order been the other way round; the manifest
+serves the grammar with third_party_enabled true; /api/official lists
+chain-replay@1, record-replay@1 and schema-check@1 as bindable; the
+chain still verifies.
