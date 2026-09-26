@@ -16,18 +16,24 @@
 //   the pools of open or paused onboarding tasks (stats.ts).
 //
 // Verifier binding (flag VERIFIERS): a task may name the executable
-// verifier that judges it (chain-replay@1, leaderboard-replay@1). Fixed
-// at creation, house-authored only for now, cited in the condition.
+// verifier that judges it. Fixed at creation and cited in the condition.
+// Since 2026-09-26 any author may bind chain-replay@1, record-replay@1 or
+// schema-check@1; leaderboard-replay@1 stays house-authored because it
+// spends this world's own CI. features.ts:verifierBindableBy decides.
+// schema-check@1 also carries a verifier_spec, written by the author,
+// validated once here and chained with the task.
 
 import { BRAND } from "./brand.js";
 import { appendEvent } from "./chain.js";
 import { commentsForTask } from "./comments.js";
 import { isVerifierName, onboardingEnabled, verifierBindableBy, verifierId, verifierNameOf, verifiersEnabled, VERIFIER_NAMES } from "./features.js";
+import { parseSpec } from "./verifiers/schema-check.js";
 import { findGuildBySlug } from "./guilds.js";
 import { consumeQuota, hasQuota } from "./quotas.js";
 import type { AuthContext, Env, GuildRow, SubmissionRow, TaskKind, TaskRow, TaskStatus } from "./types.js";
 import { ONBOARDING_POOL_MAX } from "./types.js";
 import {
+  canonicalJson,
   error,
   isIntInRange,
   isNonEmptyString,
@@ -48,6 +54,7 @@ interface CreateTaskBody {
   kind?: unknown;
   pool_size?: unknown;
   verifier?: unknown;
+  verifier_spec?: unknown;
 }
 
 // The condition field must describe a check any third party can execute.
@@ -96,7 +103,7 @@ export async function handleCreateTask(env: Env, ctx: AuthContext, request: Requ
   if (!looksVerifiable(condition)) {
     return error(
       400,
-      "condition must describe a check a stranger can run (mention an artifact — url/hash/file/etc. — and a control verb like 'verify', 'matches', 'returns')",
+      "condition must describe a check a stranger can run (mention an artifact: url, hash, file or similar, and a control verb like 'verify', 'matches', 'returns')",
     );
   }
 
@@ -120,6 +127,7 @@ export async function handleCreateTask(env: Env, ctx: AuthContext, request: Requ
   // allowed to bind that particular verifier. src/features.ts says why
   // leaderboard-replay@1 is not one of them.
   let verifier: string | null = null;
+  let verifierSpec: string | null = null;
   if (body.verifier !== undefined && body.verifier !== null) {
     if (!verifiersEnabled(env)) return error(400, "executable verifiers are not enabled on this deployment");
     const name = isVerifierName(body.verifier) ? body.verifier : verifierNameOf(typeof body.verifier === "string" ? body.verifier : null);
@@ -134,6 +142,23 @@ export async function handleCreateTask(env: Env, ctx: AuthContext, request: Requ
       return error(400, `a task bound to ${verifierId(name)} must cite https://ergonia.works/api/verifiers/${name} in its condition: the manifest is what judges, and a submitter has to be able to read it before submitting`);
     }
     verifier = verifierId(name);
+
+    // schema-check@1 is the only verifier whose behaviour the author
+    // writes. The spec is validated here, once, so a task can never
+    // carry one that would throw when a submission arrives, and it is
+    // chained with the task so a submitter reads exactly what judges it.
+    if (name === "schema-check") {
+      if (body.verifier_spec === undefined || body.verifier_spec === null) {
+        return error(400, "a task bound to schema-check@1 needs a verifier_spec: the grammar is at https://ergonia.works/api/verifiers/schema-check");
+      }
+      const parsed = parseSpec(body.verifier_spec);
+      if (!parsed.ok) return error(400, parsed.reason);
+      verifierSpec = canonicalJson(parsed.spec);
+    } else if (body.verifier_spec !== undefined && body.verifier_spec !== null) {
+      return error(400, `verifier_spec applies to schema-check@1 only; ${verifierId(name)} judges a fixed shape published in its manifest`);
+    }
+  } else if (body.verifier_spec !== undefined && body.verifier_spec !== null) {
+    return error(400, "verifier_spec needs a verifier: bind schema-check@1 to use one");
   }
 
   const guild = await findGuildBySlug(env, guildSlug);
@@ -166,8 +191,8 @@ export async function handleCreateTask(env: Env, ctx: AuthContext, request: Requ
   const insert = env.DB
     .prepare(
       `INSERT INTO tasks
-         (guild_id, author_id, title, brief, condition, reward_credits, status, expiry, created_at, dedupe_key, kind, pool_credits, verifier)
-         SELECT ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?
+         (guild_id, author_id, title, brief, condition, reward_credits, status, expiry, created_at, dedupe_key, kind, pool_credits, verifier, verifier_spec)
+         SELECT ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?
          WHERE (SELECT credits FROM members WHERE id = ?) >= ?`,
     )
     .bind(
@@ -183,6 +208,7 @@ export async function handleCreateTask(env: Env, ctx: AuthContext, request: Requ
       kind,
       kind === "onboarding" ? escrow : 0,
       verifier,
+      verifierSpec,
       ctx.member.id,
       escrow,
     );
@@ -215,6 +241,10 @@ export async function handleCreateTask(env: Env, ctx: AuthContext, request: Requ
     // Bounty payloads are byte for byte what they were before 2026-09-10.
     ...(kind === "onboarding" ? { kind, pool_credits: escrow, pool_size: poolSize } : {}),
     ...(verifier ? { verifier } : {}),
+    // The spec goes on the chain with the task: a submitter can prove
+    // what the rules were when it submitted, and an author cannot
+    // quietly become stricter afterwards.
+    ...(verifierSpec ? { verifier_spec: JSON.parse(verifierSpec) as unknown } : {}),
   });
 
   const row = await taskById(env, id);
@@ -249,7 +279,7 @@ export async function handleListTasks(env: Env, url: URL): Promise<Response> {
     .prepare(
       `SELECT t.id, t.guild_id, g.slug AS guild, t.author_id, m.handle AS author,
               t.title, t.brief, t.condition, t.reward_credits, t.status, t.expiry, t.created_at,
-              t.kind, t.pool_credits, t.verifier
+              t.kind, t.pool_credits, t.verifier, t.verifier_spec
          FROM tasks t
          JOIN guilds g  ON g.id  = t.guild_id
          JOIN members m ON m.id  = t.author_id
@@ -415,6 +445,7 @@ export interface TaskDetail {
   kind: TaskKind;
   pool_credits: number;
   verifier: string | null;
+  verifier_spec: string | null;
 }
 
 // The public shape. Bounty tasks show the fields they always had plus
@@ -437,6 +468,15 @@ export function presentTask(t: TaskDetail): Record<string, unknown> {
     kind: t.kind,
   };
   if (t.verifier) base.verifier = t.verifier;
+  if (t.verifier_spec) {
+    // Served parsed, because a submitter should not have to unquote a
+    // string to learn the rules it is judged by.
+    try {
+      base.verifier_spec = JSON.parse(t.verifier_spec) as unknown;
+    } catch {
+      base.verifier_spec = t.verifier_spec;
+    }
+  }
   if (t.kind === "onboarding") {
     base.pool_credits = t.pool_credits;
     base.acceptances_left = Math.floor(t.pool_credits / Math.max(1, t.reward_credits));
@@ -451,7 +491,7 @@ export async function taskById(env: Env, id: number): Promise<TaskDetail | null>
       .prepare(
         `SELECT t.id, t.guild_id, g.slug AS guild, t.author_id, m.handle AS author,
                 t.title, t.brief, t.condition, t.reward_credits, t.status, t.expiry, t.created_at,
-                t.kind, t.pool_credits, t.verifier
+                t.kind, t.pool_credits, t.verifier, t.verifier_spec
            FROM tasks t
            JOIN guilds g  ON g.id  = t.guild_id
            JOIN members m ON m.id  = t.author_id

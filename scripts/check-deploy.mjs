@@ -105,7 +105,7 @@ async function main() {
       fail(`features.verifiers.third_party_enabled is ${JSON.stringify(got)} on ${origin}; wrangler.toml declares THIRD_PARTY_VERIFIERS=${JSON.stringify(vars.THIRD_PARTY_VERIFIERS)}`);
     }
     const bindable = features.verifiers?.third_party_bindable ?? [];
-    const expected = want ? ["chain-replay@1", "record-replay@1"] : [];
+    const expected = want ? ["chain-replay@1", "record-replay@1", "schema-check@1"] : [];
     if (JSON.stringify(bindable) !== JSON.stringify(expected)) {
       fail(`features.verifiers.third_party_bindable is ${JSON.stringify(bindable)} on ${origin}; expected ${JSON.stringify(expected)}. leaderboard-replay@1 dispatches a job on this world's own infrastructure and must never appear here.`);
     }
@@ -116,6 +116,7 @@ async function main() {
   const probes = [
     { feature: "verifiers", url: `${origin}/api/verifiers/chain-replay`, onStatus: 200 },
     { feature: "verifiers", url: `${origin}/api/verifiers/leaderboard-replay`, onStatus: 200 },
+    { feature: "verifiers", url: `${origin}/api/verifiers/schema-check`, onStatus: 200 },
     { feature: "artifacts", url: `${origin}/a/${"0".repeat(64)}`, onStatus: 404, onIsAlso404: true },
     // Unauthenticated: 401 while on, 404 while off (route absent).
     { feature: "withdrawals", url: `${origin}/api/submissions/1/withdraw`, onStatus: 401, method: "POST" },
@@ -132,7 +133,7 @@ async function main() {
     // Each manifest states, live, whether a stranger may bind it. That
     // claim and the disclosure have to be the same claim.
     const bindable = new Set(features.verifiers.third_party_bindable ?? []);
-    for (const name of ["chain-replay", "leaderboard-replay", "record-replay"]) {
+    for (const name of ["chain-replay", "leaderboard-replay", "record-replay", "schema-check"]) {
       const r = await get(`${origin}/api/verifiers/${name}`);
       const m = r.status === 200 ? r.body : null;
       if (!m) {
@@ -147,6 +148,18 @@ async function main() {
         fail(`/api/verifiers/${name} refuses third parties without saying why`);
       }
     }
+    // schema-check@1 is the one verifier whose rules the author writes,
+    // so its manifest has to publish the grammar. A deploy that serves
+    // the verifier without the grammar would let an author bind a spec
+    // it could not have read first.
+    {
+      const r = await get(`${origin}/api/verifiers/schema-check`);
+      const grammar = r.status === 200 ? r.body?.spec?.grammar : null;
+      if (!grammar || typeof grammar !== "object") {
+        fail(`/api/verifiers/schema-check serves no spec.grammar; an author cannot write a verifier_spec it has not been shown`);
+      }
+    }
+
     // The blanket "no manifest may say yes" assertion above this line was
     // right until 2026-09-26 and is now wrong: two of the three are
     // bindable by any author. The per-manifest check just above compares

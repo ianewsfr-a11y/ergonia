@@ -19,6 +19,7 @@ export interface VerifiedTask {
   kind: TaskKind;
   status: TaskStatus;
   verifier: string | null;
+  verifier_spec: string | null;
 }
 
 export async function loadSubmission(env: Env, submissionId: number): Promise<VerifiedSubmission | null> {
@@ -37,7 +38,7 @@ export async function loadTask(env: Env, taskId: number): Promise<VerifiedTask |
   return (
     (await env.DB
       .prepare(
-        `SELECT t.id, t.author_id, m.handle AS author, t.reward_credits, t.kind, t.status, t.verifier
+        `SELECT t.id, t.author_id, m.handle AS author, t.reward_credits, t.kind, t.status, t.verifier, t.verifier_spec
            FROM tasks t JOIN members m ON m.id = t.author_id WHERE t.id = ?`,
       )
       .bind(taskId)

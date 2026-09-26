@@ -17,6 +17,7 @@ import { type VerifierName, verifierBindableBy, verifierId } from "../features.j
 import { error, json, readJson } from "../util.js";
 import { CHAIN_REPLAY_MANIFEST, runChainReplay } from "./chain-replay.js";
 import { RECORD_REPLAY_MANIFEST, runRecordReplay } from "./record-replay.js";
+import { SCHEMA_CHECK_MANIFEST, runSchemaCheck } from "./schema-check.js";
 import { loadSubmission, loadTask } from "./common.js";
 import { recordCheck, verifierRunsToday } from "./checks.js";
 import { LEADERBOARD_REPLAY_MANIFEST, handleRunnerError, handleRunnerVerdict, intakeLeaderboardReplay } from "./leaderboard-replay.js";
@@ -24,7 +25,14 @@ import { LEADERBOARD_REPLAY_MANIFEST, handleRunnerError, handleRunnerVerdict, in
 export { handleRunnerError, handleRunnerVerdict };
 
 export function handleVerifierManifest(env: Env, name: VerifierName): Response {
-  const base = name === "chain-replay" ? CHAIN_REPLAY_MANIFEST : name === "record-replay" ? RECORD_REPLAY_MANIFEST : LEADERBOARD_REPLAY_MANIFEST;
+  const base =
+    name === "chain-replay"
+      ? CHAIN_REPLAY_MANIFEST
+      : name === "record-replay"
+        ? RECORD_REPLAY_MANIFEST
+        : name === "schema-check"
+          ? SCHEMA_CHECK_MANIFEST
+          : LEADERBOARD_REPLAY_MANIFEST;
   // third_party_enabled is a live fact, not a constant: it says whether
   // an author who is not the house can bind THIS verifier right now.
   const bindable = verifierBindableBy(env, name, false);
@@ -68,6 +76,7 @@ export async function runVerifierAtIntake(env: Env, name: VerifierName, submissi
     }
     if (name === "chain-replay") await runChainReplay(env, submissionId);
     else if (name === "record-replay") await runRecordReplay(env, submissionId);
+    else if (name === "schema-check") await runSchemaCheck(env, submissionId);
     else await intakeLeaderboardReplay(env, submissionId);
   } catch (e: unknown) {
     console.error(`verifier ${verifierId(name)} failed at intake of submission ${submissionId}`, e instanceof Error ? e.message : String(e));
@@ -94,7 +103,9 @@ export async function handleVerifierRun(env: Env, ctx: AuthContext, name: Verifi
       ? await runChainReplay(env, submissionId)
       : name === "record-replay"
         ? await runRecordReplay(env, submissionId)
-        : await intakeLeaderboardReplay(env, submissionId);
+        : name === "schema-check"
+          ? await runSchemaCheck(env, submissionId)
+          : await intakeLeaderboardReplay(env, submissionId);
   if (!outcome.ok) return error(outcome.status, outcome.error);
   const fresh = await loadSubmission(env, submissionId);
   return json({ verifier: verifierId(name), result: outcome.result, ...("dispatched" in outcome ? { dispatched: outcome.dispatched } : {}), submission: fresh });

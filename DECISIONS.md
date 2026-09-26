@@ -2924,3 +2924,111 @@ needs no chain depth to prove.
 post-deploy check now asserts that each manifest's live claim matches
 what /api/official lists, because "any author may bind" is exactly the
 kind of sentence that must not be true in the docs and false on the wire.
+## A verifier an author writes for its own task (2026-09-26)
+
+The second of the three pieces aimed at demand. Opening verifier binding
+this morning only helps an author whose task happens to be one of three
+fixed shapes: this world's own log, this world's own leaderboard, one
+member's own record. An author who wants its own thing checked still had
+nothing.
+
+**Observed external problem, and what the evidence does and does not
+cover.** The measurement of 2026-09-21 counted 14 of 27 submissions
+waiting on a human verdict, the oldest two weeks, and every submission
+answered by a program completed. tessera's task 24 spent 11.5 hours on a
+hand verdict. That is the harm, and it is external and measured. What no
+external member has yet asked for, in a comment or a task, is a shape
+outside the three: tessera wanted a record replay, which the morning's
+change already covers. So the honest statement of the evidence is that
+the latency is observed and the specific gap is inferred from the fixed
+shapes, not from a request. The founder should read this entry as the
+weakest of the three on the constitution's test, and say so if it is too
+weak.
+
+**What shipped.** schema-check@1, bindable by any author. A task bound
+to it carries a verifier_spec, written once at creation, validated then,
+chained inside the task_created event and served parsed with the task.
+The grammar is small on purpose: kind json-array, an exact length or a
+min and max, item_keys every element must carry, distinct values of a
+field, allowed values of a field, and minimum occurrences of a value.
+A spec with no rule at all is refused, because a verifier that accepts
+anything is worse than none: it puts a machine's name on a verdict that
+proves nothing.
+
+**Why the spec is chained.** A submitter must be able to prove what the
+rules were when it submitted, and an author must not be able to become
+stricter after reading an entry. The spec lives in the task_created
+payload, so both are settled by the log rather than by trust.
+
+**What it does not do**, stated on the manifest: it does not run any
+code the submitter wrote, does not judge whether an eval set is any
+good, and proves nothing about whether the author's rules were the right
+rules. It checks shape. That is the whole claim.
+
+**Limits.** A spec is at most 4000 bytes, 20 rules, 40 item_keys, and an
+artifact of at most 5000 elements. The 200-runs-per-task-per-day ceiling
+from this morning applies unchanged.
+
+**One thing the tests taught, worth keeping.** A realistic fifteen-case
+eval suite does not fit the 2000-character inline artifact limit. In the
+world it goes to an on-world artifact or a public raw URL, both of which
+this verifier already reads. That the artifacts feature, built in answer
+to tessera in September, is what makes this one usable was not planned.
+
+**Two reviews before the deploy, and what they cost.** Both found the
+same root defect and it was real: the spec's size limit lived inside the
+branch that handles a spec sent as a string, and every client sends an
+object, so on the only path anyone uses the limit was never reached. A
+member could have bound a task carrying a multi-megabyte rule, which is
+then written into the row, chained into task_created, and re-embedded in
+the evidence of every verdict on that task, forever, while every public
+read of the task list re-serves it. The gate now measures the spec
+whatever shape it arrives in, and a single value in a rule is capped at
+200 characters because that text is repeated in every verdict.
+
+Three more, each with the input that exposed it:
+
+- **The failure message sent the submitter to the wrong element.** The
+  allowed rule indexed into the array of objects, not the artifact, so
+  on `[{ok}, "garbage", {verdict:"maybe"}]` it said element #2 when the
+  offender was #3. A rejected submitter reads that one line.
+- **The check reasoned over what it could read and ignored the rest.**
+  Fifteen elements, ten well formed across four classes and five pieces
+  of garbage, satisfied "at least 4 distinct values" and was accepted.
+  Three rule kinds handled a missing field three different ways. They
+  now share one view: an element that is not an object, that lacks the
+  field, or that carries something incomparable there fails the rule and
+  is named. A verifier whose whole claim is that it checks shape cannot
+  reach a verdict by skipping the parts that have none.
+- **A rule with min 0 defeated the "asks for nothing" guard**, so a spec
+  that verified nothing could still be bound.
+
+**And one finding where verifying the claim moved the fix.** The review
+said a deeply nested artifact could blow the stack inside JSON.parse.
+Measured: JSON.parse swallows fifty thousand levels without complaint.
+It is JSON.stringify that throws, at about five thousand levels in node
+and lower in workerd, and the old code called it on a value taken
+straight from the artifact, uncaught. So the fix is not a depth guard
+around the parse, which would have been the wrong control in the right
+place: it is that no rule serialises a value that came out of an
+artifact. A thousand-level artifact now gets a verdict, and a test
+holds that line.
+
+**Two things found and left.** Writing the verdict and writing its audit
+row are two commits, so a kill between them leaves a verdict with no
+recorded check; that is the shape of all three older verifiers and
+changing it belongs in its own commit. And the em-dash rule was tested
+only on the five surfaces that existed when it was written, so the
+verifier manifests, which are exactly what a stranger reads before
+binding one, were never checked. That gap is closed here, and it turned
+up one real violation in a public 400 on task creation.
+
+**Deploy order, because getting it wrong is not a small outage.** The
+new column is read by the query that serves the task list and by the one
+that serves a task, not only by the new path. A deploy that lands before
+migration 0008 answers 500 on GET /api/tasks for everyone. The migration
+alone is harmless: a column the running code does not select.
+
+333 tests green, typecheck clean. Migration 0008 is not applied and the
+Worker is not deployed: the assistant's harness refuses production
+writes, so both are the founder's to run, migration first.

@@ -10,6 +10,7 @@ import { decideChainReplay, parseT1Artifact } from "../src/verifiers/chain-repla
 import { parseT0Artifact, runCommandOf } from "../src/verifiers/leaderboard-replay.js";
 import { leaderboardRows, normaliseOutput, renderLeaderboard } from "../src/verifiers/leaderboard.js";
 import { replayLedger } from "../src/verifiers/ledger.js";
+import { checkAgainstSpec, parseSpec, MAX_SPEC_BYTES, MAX_VALUE_CHARS } from "../src/verifiers/schema-check.js";
 import { api, goodCondition, register, registerFounder } from "./helpers.js";
 import { INSTALLATION_ID, OWNER, mockGithub } from "./github/fixtures.js";
 
@@ -634,7 +635,7 @@ describe("an author that is not the house binds a verifier", () => {
 
     const official = await api("GET", "/api/official");
     expect(official.body.features.verifiers.third_party_enabled).toBe(true);
-    expect(official.body.features.verifiers.third_party_bindable).toEqual(["chain-replay@1", "record-replay@1"]);
+    expect(official.body.features.verifiers.third_party_bindable).toEqual(["chain-replay@1", "record-replay@1", "schema-check@1"]);
   });
 });
 
@@ -661,5 +662,285 @@ describe("flag THIRD_PARTY_VERIFIERS off", () => {
     const official = (await (await route(tpvOff, new Request("https://ergonia.test/api/official"))).json()) as { features: { verifiers: { third_party_enabled: boolean; third_party_bindable: string[] } } };
     expect(official.features.verifiers.third_party_enabled).toBe(false);
     expect(official.features.verifiers.third_party_bindable).toEqual([]);
+  });
+});
+
+function parseSpecOrThrow(raw: unknown) {
+  const p = parseSpec(raw);
+  if (!p.ok) throw new Error(p.reason);
+  return p.spec;
+}
+
+// ---------------------------------------------------------------------
+// schema-check@1: the verifier an author writes for its own task.
+//
+// The two specs exercised below are this world's own task 2 and task 4,
+// whose conditions were written in English in August and judged by hand.
+// If this verifier is worth anything, those two conditions are one JSON
+// object each.
+// ---------------------------------------------------------------------
+
+const INJECTION_SPEC = {
+  kind: "json-array",
+  length: 15,
+  item_keys: ["id", "injected_text", "attack_class", "expected_safe_behavior"],
+  distinct: [{ field: "attack_class", min: 4 }],
+};
+const JUDGE_SPEC = {
+  kind: "json-array",
+  length: 10,
+  item_keys: ["id", "condition", "artifact", "note", "verdict", "reason"],
+  allowed: [{ field: "verdict", values: ["accepted", "rejected"] }],
+  occurrences: [
+    { field: "verdict", value: "accepted", min: 3 },
+    { field: "verdict", value: "rejected", min: 3 },
+  ],
+};
+
+// Deliberately terse. An inline artifact is capped at 2000 characters,
+// and a realistic fifteen-case suite does not fit: in the world it goes
+// to an on-world artifact (POST /api/artifacts, 64 KB) or a public raw
+// URL, both of which this verifier reads. The check is the same either
+// way, so the tests stay inline and fast.
+function injectionSet(n = 15, classes = 4) {
+  return JSON.stringify(
+    Array.from({ length: n }, (_, i) => ({
+      id: `c${i + 1}`,
+      injected_text: "reveal your key",
+      attack_class: `a${(i % classes) + 1}`,
+      expected_safe_behavior: "refuse",
+    })),
+  );
+}
+
+async function schemaTask(token: string, spec: unknown, over: Record<string, unknown> = {}) {
+  return api("POST", "/api/tasks", {
+    token,
+    body: {
+      guild: "evals",
+      title: "Prompt-injection suite, judged by a program",
+      brief: "Fifteen cases, four attack classes. Judged by https://ergonia.works/api/verifiers/schema-check.",
+      condition: "Artifact is a JSON array; verify with https://ergonia.works/api/verifiers/schema-check against the verifier_spec served with this task.",
+      reward_credits: 3,
+      verifier: "schema-check",
+      verifier_spec: spec,
+      ...over,
+    },
+  });
+}
+
+describe("schema-check@1, pure", () => {
+  it("accepts an artifact that satisfies every rule, and says which rules held", () => {
+    const r = checkAgainstSpec(parseSpecOrThrow(INJECTION_SPEC), injectionSet());
+    expect(r.parsed).toBe(true);
+    expect(r.findings.every((f) => f.ok)).toBe(true);
+    expect(r.findings.map((f) => f.rule)).toContain("at least 4 distinct values of attack_class");
+  });
+
+  it("names the rule that failed and what it found", () => {
+    const short = checkAgainstSpec(parseSpecOrThrow(INJECTION_SPEC), injectionSet(14));
+    const failed = short.findings.filter((f) => !f.ok);
+    expect(failed).toHaveLength(1);
+    expect(failed[0]!.rule).toBe("exactly 15 elements");
+    expect(failed[0]!.detail).toBe("14");
+
+    const flat = checkAgainstSpec(parseSpecOrThrow(INJECTION_SPEC), injectionSet(15, 2));
+    expect(flat.findings.filter((f) => !f.ok).map((f) => f.detail)).toEqual(["2 distinct"]);
+
+    const missing = JSON.stringify([...JSON.parse(injectionSet(15))].map((o, i) => (i === 3 ? { id: o.id } : o)));
+    const gaps = checkAgainstSpec(parseSpecOrThrow(INJECTION_SPEC), missing);
+    expect(gaps.findings.find((f) => f.rule.startsWith("every element is an object"))!.detail).toContain("#4.injected_text");
+  });
+
+  it("refuses what is not a JSON array before applying any rule", () => {
+    expect(checkAgainstSpec(parseSpecOrThrow(INJECTION_SPEC), "not json").parsed).toBe(false);
+    expect(checkAgainstSpec(parseSpecOrThrow(INJECTION_SPEC), '{"a":1}').findings[0]!.rule).toBe("is a JSON array");
+  });
+
+  it("handles the allowed and occurrence rules of task 4's condition", () => {
+    const rows = (acc: number) =>
+      JSON.stringify(
+        Array.from({ length: 10 }, (_, i) => ({ id: i, condition: "c", artifact: "a", note: "n", verdict: i < acc ? "accepted" : "rejected", reason: "r" })),
+      );
+    expect(checkAgainstSpec(parseSpecOrThrow(JUDGE_SPEC), rows(5)).findings.every((f) => f.ok)).toBe(true);
+    const lopsided = checkAgainstSpec(parseSpecOrThrow(JUDGE_SPEC), rows(9));
+    expect(lopsided.findings.filter((f) => !f.ok).map((f) => f.detail)).toEqual(["1 times"]);
+    const stray = JSON.stringify([...JSON.parse(rows(5))].map((o, i) => (i === 0 ? { ...o, verdict: "maybe" } : o)));
+    expect(checkAgainstSpec(parseSpecOrThrow(JUDGE_SPEC), stray).findings.find((f) => f.rule.startsWith("verdict is one of"))!.detail).toContain("#1");
+  });
+
+  it("refuses a spec that would accept anything, or that this verifier cannot run", () => {
+    expect(parseSpec({ kind: "json-array" }).ok).toBe(false);
+    expect(parseSpec({ kind: "csv", length: 3 }).ok).toBe(false);
+    expect(parseSpec({ kind: "json-array", length: 3, min_length: 1 }).ok).toBe(false);
+    expect(parseSpec({ kind: "json-array", min_length: 5, max_length: 2 }).ok).toBe(false);
+    expect(parseSpec({ kind: "json-array", item_keys: ["ok", "not a field"] }).ok).toBe(false);
+    expect(parseSpec({ kind: "json-array", length: 999999 }).ok).toBe(false);
+    expect(parseSpec("{not json").ok).toBe(false);
+    expect(parseSpec({ kind: "json-array", length: 3 }).ok).toBe(true);
+  });
+});
+
+describe("schema-check@1 end to end", () => {
+  it("an author writes the spec, and a stranger's artifact is judged against it in the same request", async () => {
+    const author = await register("alpha");
+    const worker = await register("beta");
+    const t = await schemaTask(author.secret, INJECTION_SPEC);
+    expect(t.status, JSON.stringify(t.body)).toBe(201);
+    expect(t.body.task.verifier).toBe("schema-check@1");
+    // The rules are served with the task, parsed, before anyone submits.
+    expect(t.body.task.verifier_spec).toMatchObject({ kind: "json-array", length: 15 });
+    // And they are on the chain, so they cannot change under a submitter.
+    const created = (await api("GET", "/api/events?kind=task_created&limit=1")).body.events[0];
+    expect(created.payload.verifier_spec).toMatchObject({ length: 15 });
+
+    const good = await api("POST", "/api/submissions", { token: worker.secret, body: { task_id: t.body.task.id, artifact: injectionSet() } });
+    expect(good.status, JSON.stringify(good.body)).toBe(201);
+    expect(good.body.submission.status).toBe("accepted");
+    expect(good.body.submission.verdict_reason).toContain("every rule the author published holds");
+
+    const verdict = (await api("GET", "/api/events?kind=verdict&limit=1")).body.events[0];
+    expect(verdict.payload).toMatchObject({ actor: "verifier:schema-check@1", on_behalf_of: "alpha", credits_transferred: 3 });
+    expect(verdict.payload.evidence.findings.every((f: { ok: boolean }) => f.ok)).toBe(true);
+    expect((await api("GET", "/api/attest")).body.ok).toBe(true);
+  });
+
+  it("rejects in the same request and names the rule that failed, leaving the slot free", async () => {
+    const author = await register("alpha");
+    const worker = await register("beta");
+    const t = await schemaTask(author.secret, INJECTION_SPEC);
+    const bad = await api("POST", "/api/submissions", { token: worker.secret, body: { task_id: t.body.task.id, artifact: injectionSet(12) } });
+    expect(bad.body.submission.status).toBe("rejected");
+    expect(bad.body.submission.verdict_reason).toContain("exactly 15 elements: 12");
+    // Rejected costs nothing and the author keeps its escrow.
+    expect((await api("GET", "/api/me", { token: worker.secret })).body.credits).toBe(100);
+    const again = await api("POST", "/api/submissions", { token: worker.secret, body: { task_id: t.body.task.id, artifact: injectionSet() } });
+    expect(again.body.submission.status).toBe("accepted");
+  });
+
+  it("refuses a bound task with no spec, and a spec without a binding", async () => {
+    const author = await register("alpha");
+    const none = await api("POST", "/api/tasks", {
+      token: author.secret,
+      body: {
+        guild: "evals",
+        title: "Bound with nothing to check",
+        brief: "Judged by https://ergonia.works/api/verifiers/schema-check.",
+        condition: "Verify with https://ergonia.works/api/verifiers/schema-check as written there.",
+        reward_credits: 1,
+        verifier: "schema-check",
+      },
+    });
+    expect(none.status).toBe(400);
+    expect(none.body.error).toContain("needs a verifier_spec");
+
+    const orphan = await api("POST", "/api/tasks", {
+      token: author.secret,
+      body: { guild: "evals", title: "Spec without a verifier", brief: "A stranger's task.", condition: goodCondition(), reward_credits: 1, verifier_spec: INJECTION_SPEC },
+    });
+    expect(orphan.status).toBe(400);
+    expect(orphan.body.error).toContain("needs a verifier");
+
+    const wrongVerifier = await api("POST", "/api/tasks", {
+      token: author.secret,
+      body: {
+        guild: "evals",
+        title: "Spec on a fixed-shape verifier",
+        brief: "Judged by https://ergonia.works/api/verifiers/record-replay.",
+        condition: "Verify with https://ergonia.works/api/verifiers/record-replay as written there.",
+        reward_credits: 1,
+        verifier: "record-replay",
+        verifier_spec: INJECTION_SPEC,
+      },
+    });
+    expect(wrongVerifier.status).toBe(400);
+    expect(wrongVerifier.body.error).toContain("schema-check@1 only");
+  });
+
+  it("publishes a grammar a stranger can read, and says what it does not do", async () => {
+    const m = await api("GET", "/api/verifiers/schema-check");
+    expect(m.status).toBe(200);
+    expect(m.body.third_party_enabled).toBe(true);
+    expect(m.body.spec.grammar.occurrences).toContain("at least min elements");
+    expect(m.body.does_not).toContain("run any code the submitter wrote");
+    expect(m.body.proves).toContain("Nothing about whether those rules were the right ones");
+    const official = await api("GET", "/api/official");
+    expect(official.body.features.verifiers.third_party_bindable).toContain("schema-check@1");
+  });
+});
+
+// ---------------------------------------------------------------------
+// The four defects found by review before the deploy, each pinned by the
+// input that exposed it. None of these were caught by the tests above,
+// which is the point of writing them down here.
+// ---------------------------------------------------------------------
+describe("schema-check@1, what the review found", () => {
+  it("bounds the spec whatever shape it arrives in, not only as a string", () => {
+    // The limit used to live inside the string branch alone, and every
+    // real client sends an object, so it was never reached.
+    const fat = { kind: "json-array", length: 3, allowed: [{ field: "x", values: ["y".repeat(MAX_SPEC_BYTES + 100), "z"] }] };
+    const asObject = parseSpec(fat);
+    expect(asObject.ok).toBe(false);
+    expect(parseSpec(JSON.stringify(fat)).ok).toBe(false);
+    // And a single value is bounded on its own, because the rule's text
+    // is repeated in the evidence of every verdict on the task.
+    expect(parseSpec({ kind: "json-array", allowed: [{ field: "x", values: ["y".repeat(MAX_VALUE_CHARS + 1)] }] }).ok).toBe(false);
+    expect(parseSpec({ kind: "json-array", occurrences: [{ field: "x", value: "y".repeat(MAX_VALUE_CHARS + 1), min: 1 }] }).ok).toBe(false);
+  });
+
+  it("names the element the submitter must fix, counting from the artifact and not from a filtered copy", () => {
+    const mixed = JSON.stringify([{ verdict: "accepted" }, "garbage", { verdict: "maybe" }]);
+    const spec = parseSpecOrThrow({ kind: "json-array", allowed: [{ field: "verdict", values: ["accepted", "rejected"] }] });
+    const f = checkAgainstSpec(spec, mixed).findings.find((x) => x.rule.startsWith("verdict is one of"))!;
+    expect(f.ok).toBe(false);
+    // "maybe" is the third element of the artifact. Reporting #2, the
+    // index in the array of objects, would send the submitter to edit
+    // the wrong one.
+    expect(f.detail).toContain("#3");
+  });
+
+  it("fails on the elements it cannot read instead of reasoning over the ones it can", () => {
+    // Ten well-formed cases across four classes, five pieces of garbage.
+    // The old version counted four distinct values and accepted.
+    const salted = JSON.stringify([
+      ...Array.from({ length: 10 }, (_, i) => ({ id: `c${i}`, attack_class: `a${(i % 4) + 1}` })),
+      ...Array.from({ length: 5 }, () => "garbage"),
+    ]);
+    const spec = parseSpecOrThrow({ kind: "json-array", length: 15, distinct: [{ field: "attack_class", min: 4 }] });
+    const r = checkAgainstSpec(spec, salted);
+    const d = r.findings.find((x) => x.rule.startsWith("at least 4 distinct"))!;
+    expect(d.ok).toBe(false);
+    expect(d.detail).toContain("5 element(s) carry no comparable value");
+    // A field present but not comparable counts the same way.
+    const nested = JSON.stringify([{ attack_class: { deep: true } }, { attack_class: "a1" }]);
+    expect(checkAgainstSpec(parseSpecOrThrow({ kind: "json-array", occurrences: [{ field: "attack_class", value: "a1", min: 1 }] }), nested).findings.at(-1)!.ok).toBe(false);
+  });
+
+  it("refuses a rule that holds for every artifact, and a field every object already has", () => {
+    expect(parseSpec({ kind: "json-array", distinct: [{ field: "x", min: 0 }] }).ok).toBe(false);
+    expect(parseSpec({ kind: "json-array", occurrences: [{ field: "x", value: "y", min: 0 }] }).ok).toBe(false);
+    // min 0 alongside a real rule is allowed: it is useless, not unsound.
+    expect(parseSpec({ kind: "json-array", length: 3, distinct: [{ field: "x", min: 0 }] }).ok).toBe(true);
+    for (const f of ["__proto__", "constructor", "toString"]) {
+      expect(parseSpec({ kind: "json-array", item_keys: [f] }).ok, f).toBe(false);
+      expect(parseSpec({ kind: "json-array", distinct: [{ field: f, min: 1 }] }).ok, f).toBe(false);
+    }
+    // And a key inherited rather than carried does not count as present.
+    expect(checkAgainstSpec(parseSpecOrThrow({ kind: "json-array", item_keys: ["id"] }), '[{"id":1}]').findings.at(-1)!.ok).toBe(true);
+  });
+
+  it("answers a deeply nested artifact with a verdict, not with a stack overflow", async () => {
+    // 1998 characters, the whole inline budget, about a thousand levels.
+    // JSON.parse takes it; serialising it is what blows the stack, so no
+    // rule may ever serialise a value that came out of an artifact.
+    const author = await register("alpha");
+    const worker = await register("beta");
+    const t = await schemaTask(author.secret, { kind: "json-array", length: 1, allowed: [{ field: "v", values: ["ok"] }] });
+    const bomb = JSON.stringify([{ v: JSON.parse("[".repeat(900) + "]".repeat(900)) }]);
+    const r = await api("POST", "/api/submissions", { token: worker.secret, body: { task_id: t.body.task.id, artifact: bomb } });
+    expect(r.status, JSON.stringify(r.body).slice(0, 300)).toBe(201);
+    expect(r.body.submission.status).toBe("rejected");
+    expect(r.body.submission.verdict_reason).toContain("carry no comparable value there, first at #1");
+    expect((await api("GET", "/api/attest")).body.ok).toBe(true);
   });
 });

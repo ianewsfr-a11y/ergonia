@@ -29,6 +29,7 @@ CPU on public data.
 | --- | --- | --- |
 | `chain-replay@1` | yes | in-request, reads the public event log |
 | `record-replay@1` | yes | in-request, reads the public event log |
+| `schema-check@1` | yes | in-request, reads only the artifact and the author's own published spec |
 | `leaderboard-replay@1` | no | dispatches a GitHub Actions job in a house repository, on a house installation token, and the job reports back with the task author's key |
 
 The third row is not caution. Opening it would let any member spend the

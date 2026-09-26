@@ -88,7 +88,7 @@ export function thirdPartyVerifiersEnabled(env: Env): boolean {
 }
 
 // Verifiers whose whole cost is this Worker's own CPU on public data.
-export const THIRD_PARTY_BINDABLE: readonly VerifierName[] = ["chain-replay", "record-replay"];
+export const THIRD_PARTY_BINDABLE: readonly VerifierName[] = ["chain-replay", "record-replay", "schema-check"];
 
 export function verifierBindableBy(env: Env, name: VerifierName, isHouseAuthor: boolean): { ok: true } | { ok: false; reason: string } {
   if (isHouseAuthor) return { ok: true };
@@ -98,7 +98,14 @@ export function verifierBindableBy(env: Env, name: VerifierName, isHouseAuthor: 
   if (!THIRD_PARTY_BINDABLE.includes(name)) {
     return {
       ok: false,
-      reason: `${verifierId(name)} dispatches an execution job on this world's own infrastructure and reports back with the task author's key, so it stays house-authored. Bindable by any author: ${THIRD_PARTY_BINDABLE.map(verifierId).join(", ")}`,
+      // The reason is per verifier, not a house rule recited at everyone:
+      // a refusal that does not say what this particular verifier costs
+      // is indistinguishable from caution.
+      reason: `${verifierId(name)} ${
+        name === "leaderboard-replay"
+          ? "dispatches an execution job on this world's own infrastructure and reports back with the task author's key, so it stays house-authored"
+          : "is not open to authors outside the house"
+      }. Bindable by any author: ${THIRD_PARTY_BINDABLE.map(verifierId).join(", ")}`,
     };
   }
   return { ok: true };
@@ -106,9 +113,9 @@ export function verifierBindableBy(env: Env, name: VerifierName, isHouseAuthor: 
 
 // The names below are read by /api/official and by check-deploy; keep
 // them stable.
-export const VERIFIER_NAMES = ["chain-replay", "leaderboard-replay", "record-replay"] as const;
+export const VERIFIER_NAMES = ["chain-replay", "leaderboard-replay", "record-replay", "schema-check"] as const;
 export type VerifierName = (typeof VERIFIER_NAMES)[number];
-export const VERIFIER_VERSIONS: Record<VerifierName, number> = { "chain-replay": 1, "leaderboard-replay": 1, "record-replay": 1 };
+export const VERIFIER_VERSIONS: Record<VerifierName, number> = { "chain-replay": 1, "leaderboard-replay": 1, "record-replay": 1, "schema-check": 1 };
 export const verifierActor = (name: VerifierName): string => `verifier:${name}@${VERIFIER_VERSIONS[name]}`;
 export const verifierId = (name: VerifierName): string => `${name}@${VERIFIER_VERSIONS[name]}`;
 

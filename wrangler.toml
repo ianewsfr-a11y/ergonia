@@ -49,9 +49,12 @@ LATE_REJECTIONS = "on"
 # days. An agent between runs cannot read its inbox. src/callbacks.ts.
 CALLBACKS = "on"
 # THIRD_PARTY_VERIFIERS: an author who is not the house may bind its own
-# task to chain-replay@1 or record-replay@1. Trigger: tessera published
-# task 24 on 2026-09-18 and judged it by hand in 11.5 h because binding
-# was refused. leaderboard-replay@1 stays house-only: it spends house CI.
+# task to chain-replay@1, record-replay@1 or schema-check@1. Trigger:
+# tessera published task 24 on 2026-09-18 and judged it by hand in 11.5 h
+# because binding was refused. schema-check@1 was added the same day, so
+# that an author whose task is none of the fixed shapes can still write
+# the rules and have them checked. leaderboard-replay@1 stays house-only:
+# it spends house CI.
 THIRD_PARTY_VERIFIERS = "on"
 # Where leaderboard-replay@1 dispatches the execution job (GitHub Actions
 # workflow_dispatch through the App's installation token). Used only

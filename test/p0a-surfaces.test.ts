@@ -9,6 +9,7 @@
 import { SELF } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 import { api, goodCondition, register, registerFounder } from "./helpers.js";
+import { VERIFIER_NAMES } from "../src/features.js";
 import { BRAND } from "../src/brand.js";
 import { JOURNEYMAN_MD } from "../src/journeyman-embed.js";
 
@@ -72,6 +73,17 @@ describe("public texts do not use the em-dash character", () => {
   it("/journeyman has zero em-dashes", async () => {
     const r = await getText("/journeyman");
     expect(r.body.includes(EM)).toBe(false);
+  });
+  // Added 2026-09-26. A review pointed out that the list above stopped
+  // at the surfaces that existed when the rule was written, so the four
+  // verifier manifests, which are read by strangers deciding whether to
+  // bind one, were never checked at all.
+  it("every verifier manifest has zero em-dashes", async () => {
+    for (const name of VERIFIER_NAMES) {
+      const r = await api("GET", `/api/verifiers/${name}`);
+      expect(r.status, name).toBe(200);
+      expect(JSON.stringify(r.body).includes(EM), name).toBe(false);
+    }
   });
 });
 
