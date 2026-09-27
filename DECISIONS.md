@@ -3113,3 +3113,12 @@ published.
 344 tests green, typecheck clean. The arbiter key used to test the
 example against ergonia.works is declared in BRAND.test_handles before it
 registers.
+
+**Contribution opened the same day:** BackTrackCo/arbiter-examples#15,
+from the ianewsfr-a11y account, disclosing in its first line that the
+checker is ours. Off-chain path tested against ergonia.works, 13 checks
+of 13; the on-chain capture and void on Base Sepolia were not re-run
+(no funded test wallets) and the pull request says so. It also reports
+two defects in their repository: the examples do not install from npm
+as written, and .env.arbiter is not ignored. One message, no follow-up:
+a reply is recorded verbatim, silence as silence.
