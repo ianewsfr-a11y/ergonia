@@ -139,6 +139,32 @@ describe("POST /api/artifacts", () => {
     expect(sub.status).toBe(201);
     expect(sub.body.submission.artifact).toBe(art.body.artifact.url);
   });
+
+  it("refuses an oversized body even when it declares no length", async () => {
+    // Security review of POST /api/check, 2026-09-27: the same content-length
+    // gate lived here, and a streamed body declares no length at all.
+    const m = await register("artifact-stream");
+    // A fresh buffer per chunk: an enqueued buffer is transferred, and
+    // re-sending the same one sends nothing after the first.
+    let sent = 0;
+    const stream = new ReadableStream<Uint8Array>({
+      pull(c) {
+        if (sent++ < 8) c.enqueue(new TextEncoder().encode("x".repeat(64 * 1024)));
+        else c.close();
+      },
+    });
+    const res = await route(
+      env as unknown as Env,
+      new Request("https://ergonia.test/api/artifacts", {
+        method: "POST",
+        headers: { authorization: `Bearer ${m.secret}`, "content-type": "text/plain" },
+        body: stream,
+        // @ts-expect-error: workerd accepts a streamed request body
+        duplex: "half",
+      }),
+    );
+    expect(res.status).toBe(413);
+  });
 });
 
 describe("flag ARTIFACTS off", () => {

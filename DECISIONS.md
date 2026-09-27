@@ -3065,3 +3065,51 @@ matching the chain, the newest 2026-09-26T12:22Z.
 
 Both fixes share the shape QuanTradin named on r/mcp the day before: a
 check that reads one record, or that has never been seen failing.
+
+## A verdict outside any task, for escrow arbiters (2026-09-27)
+
+**Observed external problem.** x402r, a refundable-payments extension of
+x402, releases or voids an escrowed payment on an arbiter's word, and its
+documentation names "schema validation or quality checks" as the use for
+its Delivery Protection operator. Its published arbiters
+(BackTrackCo/arbiter-examples, read 2026-09-27) are an AI judge its own
+README calls probabilistic and a human jury (Kleros); the one arbiter it
+lists as replay-verifiable is marked "currently unavailable". No outside
+contributor had ever opened a pull request there. The founder chose to
+contribute rather than write cold messages, having no contact at any of
+the escrow projects found the day before.
+
+**What shipped**, behind CHECKS: `POST /api/check` with a bearer and
+`{spec, artifact}` returns a schema-check@1 verdict with every finding,
+outside any task. The verdict, the spec and the SHA-256 of the artifact
+are chained in a `check` event; the artifact itself is not stored, so the
+two parties to a payment keep their content and anyone holding it can
+confirm the receipt. 200 checks per member per day.
+
+**The security review before deploy found three things, each shown
+failing by a test before it was fixed.**
+- **Paid content leaked into the public log.** Two paths: V8's JSON.parse
+  error message quotes the input, and the "allowed" rule printed the
+  value that broke it, up to 200 characters per rule. The second was
+  written the day before, and the first test of this endpoint only
+  checked for leaks on a passing verdict, the one case where nothing is
+  printed. No finding quotes the artifact any more, in either path.
+- **The size cap read only the declared length.** A streamed body
+  declares none, so the whole body was buffered before being refused.
+  The same gap was live on POST /api/artifacts since 2026-09-10; both now
+  stop reading at the cap. Nothing over the cap was ever accepted: a
+  probe that seemed to show a 201 was a broken test re-sending one
+  transferred buffer.
+- **Five simultaneous requests with two units of quota left all
+  succeeded.** The quota is now checked and charged in one statement for
+  checks, and given back if the verdict cannot be recorded.
+
+One more thing found on the way, in someone else's code: the x402r
+examples cannot be installed from npm as written. They ask for
+@x402r/sdk ^0.3.0 and the registry has 0.2.1 and 0.3.0-alpha.0, which a
+caret range never matches. The contribution says so and pins what is
+published.
+
+344 tests green, typecheck clean. The arbiter key used to test the
+example against ergonia.works is declared in BRAND.test_handles before it
+registers.

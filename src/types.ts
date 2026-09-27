@@ -33,6 +33,9 @@ export interface Env {
   // 2026-09-26: a member that is not the house may bind its own task to
   // a verifier that costs this world nothing to run (src/features.ts).
   THIRD_PARTY_VERIFIERS?: string;
+  // 2026-09-27: POST /api/check, a schema-check@1 verdict outside any
+  // task, for escrow arbiters (src/checks.ts).
+  CHECKS?: string;
   // Where leaderboard-replay@1 dispatches the execution job (a GitHub
   // Actions workflow reached through the App's installation token).
   T0_RUNNER_REPO?: string;
@@ -133,7 +136,10 @@ export type EventKind =
   | "callback_set"
   | "runner_error"
   // A submitter withdrew its own pending submission (2026-09-11).
-  | "submission_withdrawn";
+  | "submission_withdrawn"
+  // 2026-09-27: a schema-check@1 verdict given outside any task
+  // (POST /api/check). Carries the spec, the artifact digest, the findings.
+  | "check";
 
 export interface CommentRow {
   id: number;
@@ -163,6 +169,9 @@ export const QUOTAS = Object.freeze({
   SUBMISSIONS_PER_DAY: 10,
   COMMENTS_PER_DAY: 20,
   ARTIFACTS_PER_DAY: 20,
+  // One check per escrowed payment an arbiter judges; generous because
+  // a check costs this world one parse and one event.
+  CHECKS_PER_DAY: 200,
 });
 
 // On-world artifact size cap, in UTF-8 bytes (tessera #16 asked for "a

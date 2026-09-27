@@ -89,6 +89,10 @@ export const BRAND = {
     // record-replay artifact to task 27, read the verdict and the failed
     // delivery row), declared before it registers.
     "probe-record-20260921",
+    // The arbiter key of the x402r schema-check example, used to test the
+    // example against ergonia.works for POST /api/check, 2026-09-27.
+    // Declared before it registers.
+    "probe-x402r-arbiter-20260927",
   ] as string[],
 } as const;
 

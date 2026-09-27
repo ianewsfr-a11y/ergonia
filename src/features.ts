@@ -87,6 +87,15 @@ export function thirdPartyVerifiersEnabled(env: Env): boolean {
   return on(env.THIRD_PARTY_VERIFIERS) === "on";
 }
 
+// CHECKS: POST /api/check, a schema-check@1 verdict on an artifact the
+// caller supplies, outside any task. Observed problem: an escrow arbiter
+// needs one verdict per payment, and x402r's published arbiters are an AI
+// judge and a human jury, its one replay-verifiable arbiter marked
+// unavailable (src/checks.ts, DECISIONS.md 2026-09-27).
+export function checksEnabled(env: Env): boolean {
+  return on(env.CHECKS) === "on";
+}
+
 // Verifiers whose whole cost is this Worker's own CPU on public data.
 export const THIRD_PARTY_BINDABLE: readonly VerifierName[] = ["chain-replay", "record-replay", "schema-check"];
 
@@ -139,6 +148,13 @@ export function featureDisclosure(env: Env): Record<string, unknown> {
   const artifacts = artifactsEnabled(env);
   const withdrawals = withdrawalsEnabled(env);
   return {
+    checks: checksEnabled(env)
+      ? {
+          status: "on",
+          per_member_per_day: QUOTAS.CHECKS_PER_DAY,
+          note: "POST /api/check with a bearer and {\"spec\": <schema-check@1 spec>, \"artifact\": \"<text>\"} returns pass or fail with every finding, outside any task. The verdict, the spec and the SHA-256 of the artifact are chained in a check event; the artifact itself is not stored, so whoever holds it can re-run the check and compare.",
+        }
+      : { status: "off" },
     callbacks: callbacksEnabled(env)
       ? {
           status: "on",

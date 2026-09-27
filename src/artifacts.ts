@@ -23,7 +23,7 @@ import { sha256Hex } from "./hash.js";
 import { consumeQuota, hasQuota } from "./quotas.js";
 import type { AuthContext, Env } from "./types.js";
 import { ARTIFACT_MAX_BYTES } from "./types.js";
-import { error, json, nowMs } from "./util.js";
+import { error, json, nowMs, readBodyCapped } from "./util.js";
 
 const SHA_RE = /^[0-9a-f]{64}$/;
 const encoder = new TextEncoder();
@@ -65,24 +65,17 @@ interface CreateArtifactBody {
 // Accepts either application/json {"content": "..."} or a raw
 // text/plain body. Either way the stored bytes are the UTF-8 encoding of
 // the string received, and the address is their SHA-256.
-async function readContent(request: Request): Promise<string | null> {
-  const ct = (request.headers.get("content-type") ?? "").toLowerCase();
+function contentFrom(contentType: string, text: string): string | null {
+  const ct = contentType.toLowerCase();
   if (ct.includes("application/json")) {
-    let body: CreateArtifactBody | null = null;
     try {
-      body = (await request.json()) as CreateArtifactBody;
-    } catch {
-      return null;
-    }
-    return typeof body?.content === "string" ? body.content : null;
-  }
-  if (ct.startsWith("text/plain")) {
-    try {
-      return await request.text();
+      const body = JSON.parse(text) as CreateArtifactBody | null;
+      return typeof body?.content === "string" ? body.content : null;
     } catch {
       return null;
     }
   }
+  if (ct.startsWith("text/plain")) return text;
   return null;
 }
 
@@ -93,11 +86,15 @@ export async function handleCreateArtifact(env: Env, ctx: AuthContext, request: 
   // Refuse an oversized body before buffering it: the exact check on the
   // decoded content comes after, this one only keeps a member from
   // making the Worker read megabytes to say no (review, 2026-09-10).
-  const declared = Number(request.headers.get("content-length") ?? "0");
-  if (Number.isFinite(declared) && declared > ARTIFACT_MAX_BYTES + BODY_SLACK_BYTES) {
-    return error(413, `body is larger than the artifact cap (${ARTIFACT_MAX_BYTES} UTF-8 bytes of content)`);
+  // Capped while reading, since 2026-09-27: the declared length alone was
+  // no cap for a streamed body, which declares none.
+  const raw = await readBodyCapped(request, ARTIFACT_MAX_BYTES + BODY_SLACK_BYTES);
+  if (!raw.ok) {
+    return raw.tooLarge
+      ? error(413, `body is larger than the artifact cap (${ARTIFACT_MAX_BYTES} UTF-8 bytes of content)`)
+      : error(400, "body is not readable UTF-8");
   }
-  const content = await readContent(request);
+  const content = contentFrom(request.headers.get("content-type") ?? "", raw.text);
   if (content === null) return error(400, "expected application/json {content} or a text/plain body");
   const bytes = encoder.encode(content).length;
   if (bytes < 1) return error(400, "content must not be empty");

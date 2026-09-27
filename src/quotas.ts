@@ -12,7 +12,7 @@ import type { Env, MemberRow } from "./types.js";
 import { FOUNDER_HANDLE, QUOTAS, RATE_LIMIT_PER_MINUTE } from "./types.js";
 import { nowMs, utcDay } from "./util.js";
 
-export type QuotaKind = "tasks" | "subs" | "comments" | "artifacts";
+export type QuotaKind = "tasks" | "subs" | "comments" | "artifacts" | "checks";
 
 export interface QuotaSnapshot {
   utc_day: string;
@@ -24,6 +24,8 @@ export interface QuotaSnapshot {
   comments_left: number;
   artifacts_used: number;
   artifacts_left: number;
+  checks_used: number;
+  checks_left: number;
 }
 
 interface QuotaCounters {
@@ -31,6 +33,7 @@ interface QuotaCounters {
   subs: number;
   comments: number;
   artifacts: number;
+  checks: number;
 }
 
 async function ensureQuotaRow(env: Env, memberId: number, day: string): Promise<void> {
@@ -44,10 +47,10 @@ async function ensureQuotaRow(env: Env, memberId: number, day: string): Promise<
 
 async function readQuotaRow(env: Env, memberId: number, day: string): Promise<QuotaCounters> {
   const row = await env.DB
-    .prepare("SELECT tasks, subs, comments, artifacts FROM quotas WHERE member_id = ? AND utc_day = ?")
+    .prepare("SELECT tasks, subs, comments, artifacts, checks FROM quotas WHERE member_id = ? AND utc_day = ?")
     .bind(memberId, day)
     .first<QuotaCounters>();
-  return row ?? { tasks: 0, subs: 0, comments: 0, artifacts: 0 };
+  return row ?? { tasks: 0, subs: 0, comments: 0, artifacts: 0, checks: 0 };
 }
 
 export async function snapshotQuotas(env: Env, member: MemberRow): Promise<QuotaSnapshot> {
@@ -66,6 +69,8 @@ export async function snapshotQuotas(env: Env, member: MemberRow): Promise<Quota
     comments_left: founder ? Number.POSITIVE_INFINITY : Math.max(0, QUOTAS.COMMENTS_PER_DAY - row.comments),
     artifacts_used: row.artifacts,
     artifacts_left: founder ? Number.POSITIVE_INFINITY : Math.max(0, QUOTAS.ARTIFACTS_PER_DAY - row.artifacts),
+    checks_used: row.checks,
+    checks_left: founder ? Number.POSITIVE_INFINITY : Math.max(0, QUOTAS.CHECKS_PER_DAY - row.checks),
   };
 }
 
@@ -74,12 +79,14 @@ const COLS: Record<QuotaKind, keyof QuotaCounters> = {
   subs: "subs",
   comments: "comments",
   artifacts: "artifacts",
+  checks: "checks",
 };
 const CAPS: Record<QuotaKind, number> = {
   tasks: QUOTAS.TASKS_PER_DAY,
   subs: QUOTAS.SUBMISSIONS_PER_DAY,
   comments: QUOTAS.COMMENTS_PER_DAY,
   artifacts: QUOTAS.ARTIFACTS_PER_DAY,
+  checks: QUOTAS.CHECKS_PER_DAY,
 };
 
 // Returns true if the caller has budget left (does NOT consume).
@@ -99,6 +106,35 @@ export async function consumeQuota(env: Env, member: MemberRow, kind: QuotaKind)
   await env.DB
     .prepare(`UPDATE quotas SET ${col} = ${col} + 1 WHERE member_id = ? AND utc_day = ?`)
     .bind(member.id, day)
+    .run();
+}
+
+// Check and charge in one statement, so simultaneous requests cannot all
+// read "one left" before any of them writes. Returns false when the cap
+// is reached. hasQuota + consumeQuota is a read then a write; five
+// concurrent POST /api/check with two units left all went through
+// (reproduced in test/checks.test.ts, 2026-09-27). Used by /api/check,
+// the cheapest write to spam; the older kinds keep the two-step form.
+export async function tryConsumeQuota(env: Env, member: MemberRow, kind: QuotaKind): Promise<boolean> {
+  if (member.handle === FOUNDER_HANDLE) return true;
+  const day = utcDay();
+  await ensureQuotaRow(env, member.id, day);
+  const col = COLS[kind];
+  const res = await env.DB
+    .prepare(`UPDATE quotas SET ${col} = ${col} + 1 WHERE member_id = ? AND utc_day = ? AND ${col} < ?`)
+    .bind(member.id, day, CAPS[kind])
+    .run();
+  return (res.meta.changes ?? 0) > 0;
+}
+
+// Give back one unit charged by tryConsumeQuota when the write it paid
+// for did not happen, so a caller is never charged for nothing.
+export async function releaseQuota(env: Env, member: MemberRow, kind: QuotaKind): Promise<void> {
+  if (member.handle === FOUNDER_HANDLE) return;
+  const col = COLS[kind];
+  await env.DB
+    .prepare(`UPDATE quotas SET ${col} = ${col} - 1 WHERE member_id = ? AND utc_day = ? AND ${col} > 0`)
+    .bind(member.id, utcDay())
     .run();
 }
 

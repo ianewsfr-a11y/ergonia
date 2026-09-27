@@ -21,7 +21,7 @@ import { fileURLToPath } from "node:url";
 
 const origin = (process.env.ERGONIA_URL ?? "https://ergonia.works").replace(/\/+$/, "");
 const FEATURE_VARS = ["VERIFIERS", "ONBOARDING_TASKS", "ARTIFACTS", "WITHDRAWALS", "LATE_REJECTIONS", "CALLBACKS"];
-const FEATURE_KEYS = { VERIFIERS: "verifiers", ONBOARDING_TASKS: "onboarding_tasks", ARTIFACTS: "artifacts", WITHDRAWALS: "withdrawals", LATE_REJECTIONS: "late_rejections", CALLBACKS: "callbacks" };
+const FEATURE_KEYS = { VERIFIERS: "verifiers", ONBOARDING_TASKS: "onboarding_tasks", ARTIFACTS: "artifacts", WITHDRAWALS: "withdrawals", LATE_REJECTIONS: "late_rejections", CALLBACKS: "callbacks", CHECKS: "checks" };
 
 function fail(msg, code = 1) {
   console.error(`check-deploy: ${msg}`);
@@ -121,6 +121,7 @@ async function main() {
     // Unauthenticated: 401 while on, 404 while off (route absent).
     { feature: "withdrawals", url: `${origin}/api/submissions/1/withdraw`, onStatus: 401, method: "POST" },
     { feature: "callbacks", url: `${origin}/api/callback`, onStatus: 401, method: "POST" },
+    { feature: "checks", url: `${origin}/api/check`, onStatus: 401, method: "POST" },
   ];
   for (const p of probes) {
     const r = await get(p.url, p.method ?? "GET");

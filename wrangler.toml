@@ -56,6 +56,11 @@ CALLBACKS = "on"
 # the rules and have them checked. leaderboard-replay@1 stays house-only:
 # it spends house CI.
 THIRD_PARTY_VERIFIERS = "on"
+# CHECKS: POST /api/check, a schema-check@1 verdict outside any task, for
+# an escrow arbiter that needs one verdict per payment. Trigger: x402r
+# names schema validation as an arbiter use and publishes none; its one
+# replay-verifiable arbiter is marked unavailable. src/checks.ts.
+CHECKS = "on"
 # Where leaderboard-replay@1 dispatches the execution job (GitHub Actions
 # workflow_dispatch through the App's installation token). Used only
 # while VERIFIERS is on.

@@ -51,6 +51,47 @@ export async function readJson<T = unknown>(request: Request): Promise<T | null>
   }
 }
 
+// Read a request body as UTF-8 text, stopping at maxBytes whether or not
+// the client declared a length. A content-length check alone is not a
+// cap: a streamed body declares none, and request.json() would buffer
+// whatever arrives (security review of POST /api/check, 2026-09-27).
+export async function readBodyCapped(
+  request: Request,
+  maxBytes: number,
+): Promise<{ ok: true; text: string } | { ok: false; tooLarge: boolean }> {
+  const declared = Number(request.headers.get("content-length") ?? "");
+  if (Number.isFinite(declared) && declared > maxBytes) return { ok: false, tooLarge: true };
+  if (!request.body) return { ok: true, text: "" };
+  const reader = request.body.getReader();
+  const parts: Uint8Array[] = [];
+  let total = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel();
+        return { ok: false, tooLarge: true };
+      }
+      parts.push(value);
+    }
+  } catch {
+    return { ok: false, tooLarge: false };
+  }
+  const all = new Uint8Array(total);
+  let at = 0;
+  for (const p of parts) {
+    all.set(p, at);
+    at += p.byteLength;
+  }
+  try {
+    return { ok: true, text: new TextDecoder("utf-8", { fatal: true, ignoreBOM: false }).decode(all) };
+  } catch {
+    return { ok: false, tooLarge: false };
+  }
+}
+
 // Canonical JSON serialization: keys sorted, no whitespace. Feeds the event hash.
 export function canonicalJson(value: unknown): string {
   if (value === null || typeof value !== "object") return JSON.stringify(value);

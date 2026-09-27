@@ -92,6 +92,14 @@ const isScalar = (v: unknown): v is string | number | boolean => typeof v === "s
 // 2000-character inline artifact, so the rules below compare scalars and
 // name everything else by its type. No code path here serialises a value
 // that came out of an artifact; keep it that way.
+//
+// And no finding ever quotes the artifact, scalar or not (2026-09-27).
+// The first version printed the value that broke an "allowed" rule and
+// the JSON.parse error message, which V8 writes with a snippet of the
+// input in it. Findings are public: they go in the verdict and, for
+// POST /api/check, on the chain for a payment whose content the two
+// parties own. renderScalar is only ever applied to what the AUTHOR wrote
+// in the spec; an artifact is described by position, count and type.
 const renderScalar = (v: unknown): string =>
   isScalar(v) ? JSON.stringify(v).slice(0, MAX_VALUE_CHARS) : v === null ? "null" : Array.isArray(v) ? "(array)" : v === undefined ? "(absent)" : "(object)";
 const FIELD_RE = /^[A-Za-z_][A-Za-z0-9_]{0,63}$/;
@@ -256,8 +264,9 @@ export function checkAgainstSpec(spec: SchemaSpec, text: string): { findings: Sc
   let data: unknown;
   try {
     data = JSON.parse(text);
-  } catch (e) {
-    return { findings: [{ rule: "parses as JSON", ok: false, detail: e instanceof Error ? e.message.slice(0, 120) : "not JSON" }], parsed: false };
+  } catch {
+    // A fixed message: V8's own quotes the input it choked on.
+    return { findings: [{ rule: "parses as JSON", ok: false, detail: `not valid JSON (${text.length} characters)` }], parsed: false };
   }
   if (!Array.isArray(data)) {
     return { findings: [{ rule: "is a JSON array", ok: false, detail: `top level is ${Array.isArray(data) ? "array" : typeof data}` }], parsed: false };
@@ -307,7 +316,7 @@ export function checkAgainstSpec(spec: SchemaSpec, text: string): { findings: Sc
     findings.push({
       rule: `${r.field} is one of ${r.values.map((v) => renderScalar(v)).join(", ")}`,
       ok: bad.length === 0 && view.unusable.length === 0,
-      detail: bad.length === 0 ? `all inside${unusableNote(view)}` : `${bad.length} outside, first at element #${bad[0]!.i + 1} (${renderScalar(bad[0]!.v)})${unusableNote(view)}`,
+      detail: bad.length === 0 ? `all inside${unusableNote(view)}` : `${bad.length} outside, first at element #${bad[0]!.i + 1} (a ${typeof bad[0]!.v} not in the list)${unusableNote(view)}`,
     });
   }
   for (const r of spec.occurrences ?? []) {
@@ -350,7 +359,11 @@ export const SCHEMA_CHECK_MANIFEST = {
     reject_if: "the artifact is unreadable at a readable address, does not parse as a JSON array, or any rule fails; the verdict names each rule and what was found",
     otherwise: "pending (the artifact address answered with a transient error; the author re-runs the verifier with POST /api/verifiers/schema-check/run)",
   },
-  trigger: { on: ["submission.recorded", "POST /api/verifiers/schema-check/run"], verdict_within: "the same request" },
+  trigger: {
+    on: ["submission.recorded", "POST /api/verifiers/schema-check/run"],
+    standalone: "POST /api/check with {spec, artifact}: the same verdict outside any task, chained in a check event, for an escrow arbiter that needs one verdict per payment (live when /api/official lists checks as on)",
+    verdict_within: "the same request",
+  },
   does_not: "run any code the submitter wrote. It reads the artifact's bytes and applies the author's spec. A task that needs a program executed is a different verifier with a different cost.",
   proves: "That the artifact satisfies every rule the task's author published before the submission existed. Nothing about whether those rules were the right ones.",
   actor: ACTOR,
