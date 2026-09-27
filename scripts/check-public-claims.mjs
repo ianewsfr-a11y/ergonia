@@ -173,6 +173,24 @@ try {
     pass("every witness checkpoint matches the chain", `${records.length} of ${records.length}, events ${records[0].head_id} (${records[0].captured_at ?? records[0].date}) to ${last.head_id}`);
   }
 
+  // Since 2026-09-28 each checkpoint names the one before it (r/mcp,
+  // 2026-09-27: "bind each checkpoint to the previously published head").
+  // A checkpoint that names another head than its predecessor's means the
+  // file was edited between two runs; one that carries fewer events means
+  // the chain shrank and the witness should have refused it.
+  const unlinked = [];
+  for (let i = 1; i < records.length; i += 1) {
+    const r = records[i];
+    const p = records[i - 1];
+    if (r.prev_head_hash !== undefined && (r.prev_head_hash !== p.head_hash || r.prev_head_id !== p.head_id)) {
+      unlinked.push(`${r.captured_at ?? r.date} names ${r.prev_head_id}/${String(r.prev_head_hash).slice(0, 12)}, the previous checkpoint is ${p.head_id}/${String(p.head_hash).slice(0, 12)}`);
+    }
+    if (r.count < p.count) unlinked.push(`${r.captured_at ?? r.date} carries ${r.count} events, fewer than the ${p.count} before it`);
+  }
+  const linked = records.filter((r) => r.prev_head_hash !== undefined).length;
+  if (unlinked.length) fail("each witness checkpoint follows the one before it", `${unlinked.length}: ${unlinked[0]}`);
+  else pass("each witness checkpoint follows the one before it", `${linked} linked checkpoint(s), counts never decrease`);
+
   if (last.head_hash === attest.head.hash && last.count === attest.count) {
     pass("the witness matches the live head", `count ${last.count}`);
   } else {
