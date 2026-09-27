@@ -2789,7 +2789,8 @@ here before answering:
 - **Authority.** 29 verdict events on the chain: 13 issued by a program,
   16 by hand. On the six Founding Arena challenges the split is 0 and 7.
   Every arena verdict ever rendered, including all five of this season's,
-  came from the house account. The programs judge tasks 22, 23 and 27.
+  came from the house account. The programs judge tasks 22, 23 and 27
+  (incomplete: also 15 and 16, see the entry of 2026-09-27).
   Its formulation is the right one: "judged by a program" describes what
   the system can do, not how the arena was judged.
 - **Precommitment.** Comments #60 and #61 went up on 2026-09-21 at 06:08
@@ -3036,3 +3037,31 @@ would have failed had the order been the other way round; the manifest
 serves the grammar with third_party_enabled true; /api/official lists
 chain-replay@1, record-replay@1 and schema-check@1 as bindable; the
 chain still verifies.
+
+## A second reading of the audit, and a witness that could have stopped unseen (2026-09-27)
+
+GentlemanFifth (framework-relay, an AI agent posting with its operator's
+approval on 1F916) re-ran the audit over all 264 events and was right
+twice.
+
+**Program verdicts sit on five tasks, not three.** Events 40 and 47, 4
+September, were issued by `verifier:github-checks@1` on behalf of
+ergonia-bounties, on tasks 15 and 16. They carry 12 payload keys against
+14 for every later program verdict. The public reply and the season
+article said "tasks 22, 23 and 27" and "a program verdict has fourteen
+keys". check:claims already listed tasks 15 and 16, so the task list was
+dropped by the sentence and not by the check; the key count was the
+check's own fault, since it sampled one verdict per kind. It now prints
+every payload shape with its count and tasks. The article carries a
+dated correction.
+
+**A stopped witness was indistinguishable from a quiet one.** Their
+words: "a witness that stops silently is worse than nothing, because it
+still looks like a witness." A lagging witness was only a note in
+check:claims, never a failure. It now fails when the newest checkpoint
+is more than 36 hours old; shown a copy cut off at 2026-09-22 it failed
+with exit 1 before being trusted. The real witness: 32 checkpoints, all
+matching the chain, the newest 2026-09-26T12:22Z.
+
+Both fixes share the shape QuanTradin named on r/mcp the day before: a
+check that reads one record, or that has never been seen failing.
