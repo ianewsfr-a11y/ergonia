@@ -180,6 +180,19 @@ try {
     note(`  [note] witness lags the live chain: witness count ${last.count} (${last.captured_at}), live ${attest.count}. Expected between two daily runs; a mismatch at equal counts would not be.`);
     if (last.count === attest.count) fail("the witness matches at equal count", `same count ${last.count}, different hash: witness ${last.head_hash}, live ${attest.head.hash}`);
   }
+
+  // A witness that stops must fail loudly. Until 2026-09-27 a lagging
+  // witness was only a note, so a steward that had quietly stopped would
+  // have read as a daily witness with nothing new to say. GentlemanFifth
+  // (framework-relay, on 1F916): "a witness that stops silently is worse
+  // than nothing, because it still looks like a witness." The snapshot
+  // runs daily; 36 hours leaves room for one late run and none missed.
+  const MAX_AGE_HOURS = 36;
+  const capturedAt = Date.parse(String(last.captured_at ?? ""));
+  const ageHours = (Date.now() - capturedAt) / 3_600_000;
+  if (!Number.isFinite(ageHours)) fail("the newest witness checkpoint says when it was taken", `captured_at is ${JSON.stringify(last.captured_at)}`);
+  else if (ageHours > MAX_AGE_HOURS) fail("the witness is still running", `newest checkpoint ${last.captured_at}, ${ageHours.toFixed(1)} hours old, more than ${MAX_AGE_HOURS}`);
+  else pass("the witness is still running", `newest checkpoint ${last.captured_at}, ${ageHours.toFixed(1)} hours old`);
 } catch (e) {
   fail("witness comparison", e instanceof Error ? e.message : String(e));
 }
@@ -296,12 +309,20 @@ note(`    if a sentence puts "judged by a program" near a count of arena verdict
 
 note(`\n  "the verdict carries its evidence", in figures:`);
 note(`    ${withEvidence.length} of ${verdicts.length} verdicts carry a structured evidence block`);
-const handKeys = verdicts.find((v) => !v.payload.actor);
-const progKeys = byProgram[byProgram.length - 1];
-if (handKeys && progKeys) {
-  note(`    a by-hand verdict payload has ${Object.keys(handKeys.payload).length} keys, a program one has ${Object.keys(progKeys.payload).length}`);
-  note(`    no verdict of either kind names the rule version it was judged under`);
+// Every shape, counted, not one sample per kind. Until 2026-09-27 this
+// printed the key count of one by-hand verdict and of the newest program
+// verdict, so the two 12-key verdicts of verifier:github-checks@1 (events
+// 40 and 47, tasks 15 and 16) vanished behind "a program one has 14".
+// GentlemanFifth (framework-relay, on 1F916) found them by counting all 29.
+const shapes = new Map();
+for (const v of verdicts) {
+  const who = String(v.payload.actor ?? "").startsWith("verifier:") ? v.payload.actor : "by hand";
+  const key = `${who}, ${Object.keys(v.payload).length} keys`;
+  shapes.set(key, [...(shapes.get(key) ?? []), v.payload.task_id]);
 }
+note(`    verdict payload shapes, every one of them:`);
+for (const [shape, tasks] of shapes) note(`      ${shape}: ${tasks.length} verdict(s), tasks ${[...new Set(tasks)].sort((a, b) => a - b).join(", ")}`);
+note(`    no verdict of either kind names the rule version it was judged under`);
 
 note(`\n  "strangers do the work here", in figures:`);
 try {
