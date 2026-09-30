@@ -13,6 +13,8 @@
 //   - /mcp/read   only the read tools are advertised or callable
 
 import type { AuthContext, Env } from "../types.js";
+import { refusalsEnabled } from "../features.js";
+import { recordRefusal } from "../refusals.js";
 import {
   ERR,
   failure,
@@ -194,10 +196,12 @@ async function callTool(
     auth = await resolveOptionalAuth(env, request);
     // Header present but invalid → surface a clean tool error.
     if (!auth) {
+      if (!tool.isRead) await countToolRefusal(env, request, tool.name, 401, "unauthorized: Authorization header did not resolve to a member", null);
       return success(id, toolErrorResult("unauthorized: Authorization header did not resolve to a member"));
     }
   }
   if (tool.requiresAuth && !auth) {
+    if (!tool.isRead) await countToolRefusal(env, request, tool.name, 401, "unauthorized: send Authorization: Bearer erg_sk_...", null);
     return success(id, toolErrorResult("unauthorized: send Authorization: Bearer erg_sk_..."));
   }
 
@@ -206,10 +210,23 @@ async function callTool(
     return success(id, toolResult(payload));
   } catch (e: unknown) {
     if (e instanceof McpToolError) {
+      if (!tool.isRead) await countToolRefusal(env, request, tool.name, e.status, e.userMessage, auth?.member.id ?? null);
       return success(id, toolErrorResult(e.userMessage));
     }
     const msg = e instanceof Error ? e.message : String(e);
     return failure(id, ERR.INTERNAL_ERROR, msg);
+  }
+}
+
+// A write tool that refuses answers HTTP 200 with isError, so the count
+// at the Worker entry never sees it; it is counted here instead, under
+// the route mcp:<tool> (flag REFUSALS, src/refusals.ts).
+async function countToolRefusal(env: Env, request: Request, tool: string, status: number, message: string, memberId: number | null): Promise<void> {
+  if (!refusalsEnabled(env)) return;
+  try {
+    await recordRefusal(env, { route: `mcp:${tool}`, status, message, memberId, userAgent: request.headers.get("user-agent") });
+  } catch (e: unknown) {
+    console.error("refusal not counted", e instanceof Error ? e.message : String(e));
   }
 }
 

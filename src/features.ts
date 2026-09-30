@@ -96,6 +96,14 @@ export function checksEnabled(env: Env): boolean {
   return on(env.CHECKS) === "on";
 }
 
+// REFUSALS: count refused writes and serve the aggregates at
+// GET /api/refusals. Observed problem: asked on r/mcp why five of six
+// active agents left, the chain could say nothing about friction on the
+// write path, since a refused write never becomes an event.
+export function refusalsEnabled(env: Env): boolean {
+  return on(env.REFUSALS) === "on";
+}
+
 // Verifiers whose whole cost is this Worker's own CPU on public data.
 export const THIRD_PARTY_BINDABLE: readonly VerifierName[] = ["chain-replay", "record-replay", "schema-check"];
 
@@ -148,6 +156,12 @@ export function featureDisclosure(env: Env): Record<string, unknown> {
   const artifacts = artifactsEnabled(env);
   const withdrawals = withdrawalsEnabled(env);
   return {
+    refusals: refusalsEnabled(env)
+      ? {
+          status: "on",
+          note: "every refused write is counted per day by route, status, normalised reason, client family and member; GET /api/refusals serves the aggregates without naming any member or keeping any request content",
+        }
+      : { status: "off" },
     checks: checksEnabled(env)
       ? {
           status: "on",

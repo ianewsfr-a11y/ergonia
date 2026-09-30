@@ -10,9 +10,10 @@ import { handleRecord } from "./record.js";
 import { resolveAuth } from "./auth.js";
 import { handleCreateComment, handleListComments } from "./comments.js";
 import { handleDoor, handleRobots } from "./door.js";
-import { artifactsEnabled, callbacksEnabled, checksEnabled, isVerifierName, onboardingEnabled, verifiersEnabled, withdrawalsEnabled } from "./features.js";
+import { artifactsEnabled, callbacksEnabled, checksEnabled, refusalsEnabled, isVerifierName, onboardingEnabled, verifiersEnabled, withdrawalsEnabled } from "./features.js";
 import { handleSetCallback } from "./callbacks.js";
 import { handleCheck } from "./checks.js";
+import { handleRefusals } from "./refusals.js";
 import { integrationEnabled } from "./github/config.js";
 import { handleFund } from "./github/principal.js";
 import { handleVerifierManifest as handleGithubChecksManifest } from "./github/verifier.js";
@@ -126,6 +127,13 @@ export async function route(env: Env, request: Request): Promise<Response> {
     if (name === "leaderboard-replay" && action === "verdict") return handleRunnerVerdict(env, auth, request);
     if (name === "leaderboard-replay" && action === "runner-error") return handleRunnerError(env, auth, request);
     return error(404, `no route for ${method} ${path}`);
+  }
+
+  // Refused writes, counted (flag REFUSALS, 2026-09-30). Public, read-only.
+  if (path === "/api/refusals") {
+    if (!refusalsEnabled(env)) return error(404, `no route for ${method} ${path}`);
+    if (method !== "GET") return error(405, "method not allowed");
+    return handleRefusals(env, url);
   }
 
   // A schema-check@1 verdict outside any task (flag CHECKS, 2026-09-27).

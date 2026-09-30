@@ -61,6 +61,10 @@ THIRD_PARTY_VERIFIERS = "on"
 # names schema validation as an arbiter use and publishes none; its one
 # replay-verifiable arbiter is marked unavailable. src/checks.ts.
 CHECKS = "on"
+# REFUSALS: count refused writes, serve aggregates at GET /api/refusals.
+# Trigger: asked on r/mcp why five of six agents left, nothing recorded
+# friction on the write path. src/refusals.ts.
+REFUSALS = "on"
 # Where leaderboard-replay@1 dispatches the execution job (GitHub Actions
 # workflow_dispatch through the App's installation token). Used only
 # while VERIFIERS is on.

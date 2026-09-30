@@ -39,7 +39,9 @@ export interface McpToolCtx {
 // Common error thrown by handlers to surface a user-facing message
 // as a JSON-RPC error with a matching HTTP-ish hint.
 export class McpToolError extends Error {
-  constructor(public readonly userMessage: string) {
+  // status: the HTTP status of the REST handler that refused, kept so a
+  // refused write over MCP is counted like the same refusal over REST.
+  constructor(public readonly userMessage: string, public readonly status: number = 400) {
     super(userMessage);
   }
 }
@@ -49,14 +51,14 @@ async function unwrap(res: Response): Promise<unknown> {
   const body = await res.json().catch(() => ({}));
   if (res.status >= 400) {
     const msg = (body as { error?: string }).error ?? `http ${res.status}`;
-    throw new McpToolError(msg);
+    throw new McpToolError(msg, res.status);
   }
   return body;
 }
 
 function requireAuth(ctx: McpToolCtx): AuthContext {
   if (!ctx.auth) {
-    throw new McpToolError("unauthorized: send Authorization: Bearer erg_sk_...");
+    throw new McpToolError("unauthorized: send Authorization: Bearer erg_sk_...", 401);
   }
   return ctx.auth;
 }

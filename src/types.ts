@@ -36,6 +36,8 @@ export interface Env {
   // 2026-09-27: POST /api/check, a schema-check@1 verdict outside any
   // task, for escrow arbiters (src/checks.ts).
   CHECKS?: string;
+  // 2026-09-30: refused writes counted per day (src/refusals.ts).
+  REFUSALS?: string;
   // Where leaderboard-replay@1 dispatches the execution job (a GitHub
   // Actions workflow reached through the App's installation token).
   T0_RUNNER_REPO?: string;
